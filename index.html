@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description"
+        content="Gestor de Despesas — calendário, categorias, despesas recorrentes e exportação Excel.">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Despesas">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <title>Gestor de Despesas</title>
+</head>
+
+<body>
+    <div id="app">
+        <!-- ======= CALENDAR SCREEN ======= -->
+        <div id="screen-calendar" class="screen active">
+            <header class="screen-header">
+                <h1 class="app-title">💰 Despesas</h1>
+            </header>
+
+            <div class="month-nav">
+                <button id="prev-month" class="nav-btn">◀</button>
+                <h2 id="month-label" class="month-label">Fevereiro 2026</h2>
+                <button id="next-month" class="nav-btn">▶</button>
+            </div>
+
+            <div class="month-total-bar">
+                <span class="month-total-label">Total do mês</span>
+                <span id="month-total" class="month-total-value">0,00 €</span>
+            </div>
+
+            <div class="calendar-weekdays">
+                <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+
+            <div id="day-detail" class="day-detail hidden">
+                <div class="day-detail-header">
+                    <h3 id="day-detail-title"></h3>
+                    <div class="day-detail-actions">
+                        <button id="day-add-btn" class="day-add-btn" title="Adicionar neste dia">＋</button>
+                        <button id="day-detail-close" class="close-btn">✕</button>
+                    </div>
+                </div>
+                <div id="day-detail-list" class="day-detail-list"></div>
+                <div id="day-detail-total" class="day-detail-total"></div>
+            </div>
+
+            <button id="fab-add" class="fab" title="Adicionar despesa">＋</button>
+        </div>
+
+        <!-- ======= ADD/EDIT EXPENSE SCREEN ======= -->
+        <div id="screen-add" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="calendar">← Voltar</button>
+                <h1 id="add-title">Nova Despesa</h1>
+            </header>
+
+            <form id="expense-form" class="form">
+                <input type="hidden" id="expense-id" value="">
+
+                <div class="form-group">
+                    <label for="expense-amount">Valor (€)</label>
+                    <input type="number" id="expense-amount" step="0.01" min="0" placeholder="0,00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="expense-desc">Descrição</label>
+                    <input type="text" id="expense-desc" placeholder="Ex: Supermercado" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="expense-date">Data</label>
+                    <input type="date" id="expense-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <div id="category-picker" class="category-picker"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <span>Despesa recorrente</span>
+                        <input type="checkbox" id="expense-recurring">
+                        <span class="toggle-switch"></span>
+                    </label>
+                </div>
+
+                <div id="recurring-options" class="recurring-options hidden">
+                    <label class="radio-label">
+                        <input type="radio" name="recurring-type" value="daily"> Diário
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="recurring-type" value="weekly"> Semanal
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="recurring-type" value="monthly" checked> Mensal
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="recurring-type" value="yearly"> Anual
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary" id="save-btn">Guardar</button>
+                    <button type="button" class="btn-danger hidden" id="delete-btn">Eliminar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ======= DELETE CONFIRMATION MODAL ======= -->
+        <div id="delete-modal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <h3>Eliminar despesa</h3>
+                <p id="delete-modal-text">Esta despesa é recorrente. O que queres fazer?</p>
+                <div class="modal-actions">
+                    <button id="delete-one-btn" class="btn-modal">Só esta</button>
+                    <button id="delete-all-btn" class="btn-modal btn-modal-danger">Todas as recorrências</button>
+                    <button id="delete-cancel-btn" class="btn-modal btn-modal-cancel">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ======= CATEGORIES SCREEN ======= -->
+        <div id="screen-categories" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="calendar">← Voltar</button>
+                <h1>Categorias</h1>
+            </header>
+
+            <div id="categories-list" class="categories-list"></div>
+
+            <div class="add-category-form">
+                <input type="text" id="new-cat-name" placeholder="Nova categoria..." maxlength="20">
+                <input type="text" id="new-cat-icon" placeholder="🏷️" maxlength="2" class="icon-input">
+                <input type="color" id="new-cat-color" value="#7f5af0" class="color-input">
+                <button id="add-cat-btn" class="btn-small">Adicionar</button>
+            </div>
+        </div>
+
+        <!-- ======= SUMMARY SCREEN ======= -->
+        <div id="screen-summary" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="calendar">← Voltar</button>
+                <h1>Resumo</h1>
+            </header>
+
+            <div class="summary-period">
+                <button id="prev-summary" class="nav-btn">◀</button>
+                <h2 id="summary-month-label">Fevereiro 2026</h2>
+                <button id="next-summary" class="nav-btn">▶</button>
+            </div>
+
+            <div class="summary-total-card">
+                <span class="summary-total-label">Total</span>
+                <span id="summary-total" class="summary-total-value">0,00 €</span>
+            </div>
+
+            <div id="summary-chart" class="summary-chart"></div>
+            <div id="summary-breakdown" class="summary-breakdown"></div>
+        </div>
+
+        <!-- ======= EXPORT SCREEN ======= -->
+        <div id="screen-export" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="calendar">← Voltar</button>
+                <h1>Exportar</h1>
+            </header>
+
+            <div class="export-form">
+                <div class="form-group">
+                    <label for="export-from">De</label>
+                    <input type="date" id="export-from">
+                </div>
+                <div class="form-group">
+                    <label for="export-to">Até</label>
+                    <input type="date" id="export-to">
+                </div>
+                <button id="export-btn" class="btn-primary">📥 Exportar Excel (.xlsx)</button>
+                <p class="export-hint">O ficheiro será descarregado automaticamente.</p>
+            </div>
+        </div>
+
+        <!-- ======= BOTTOM NAV ======= -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-screen="calendar">
+                <span class="nav-icon">📅</span>
+                <span class="nav-label">Calendário</span>
+            </button>
+            <button class="nav-item" data-screen="categories">
+                <span class="nav-icon">🏷️</span>
+                <span class="nav-label">Categorias</span>
+            </button>
+            <button class="nav-item" data-screen="summary">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Resumo</span>
+            </button>
+            <button class="nav-item" data-screen="export">
+                <span class="nav-icon">📤</span>
+                <span class="nav-label">Exportar</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
