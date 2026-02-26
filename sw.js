@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v3';
+const CACHE_NAME = 'expense-tracker-v4';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -7,7 +7,8 @@ const ASSETS_TO_CACHE = [
     '/app.js',
     '/manifest.json',
     '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/icons/icon-512.png',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'
 ];
 
 self.addEventListener('install', (event) => {
