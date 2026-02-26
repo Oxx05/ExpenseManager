@@ -51,7 +51,7 @@ function setupNavigation() {
     document.querySelectorAll('.back-btn').forEach(btn => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
     });
-    document.getElementById('fab-add').addEventListener('click', () => openAddExpense());
+    document.getElementById('fab-add').addEventListener('click', () => openAddExpense(selectedDayDate));
 }
 
 function navigateTo(screenId) {
@@ -97,6 +97,8 @@ function setupCalendarNav() {
 
 function closeDayDetail() {
     document.getElementById('day-detail').classList.add('hidden');
+    // remove visual selection from calendar when closing detail
+    document.querySelectorAll('.cal-day.current').forEach(c => c.classList.remove('current'));
     selectedDayDate = null;
 }
 
@@ -206,13 +208,15 @@ function createDayCell(day, isOtherMonth, isToday = false, expenses = [], dateSt
 
     // ALL days are clickable (even without expenses — to add directly)
     if (!isOtherMonth && dateStr) {
+        // persist selection if this date is already selected
+        if (dateStr === selectedDayDate) el.classList.add('current');
+
         el.addEventListener('click', () => {
+            // ensure only one day has the `.current` class
+            document.querySelectorAll('.cal-day.current').forEach(c => c.classList.remove('current'));
             selectedDayDate = dateStr;
-            if (expenses.length > 0) {
-                showDayDetail(dateStr, expenses);
-            } else {
-                openAddExpense(dateStr);
-            }
+            el.classList.add('current');
+            showDayDetail(dateStr, expenses);
         });
     }
 

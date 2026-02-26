@@ -90,13 +90,27 @@ body {
 }
 
 .back-btn {
-    background: none;
-    border: none;
+    background: rgba(127, 90, 240, 0.1);
+    border: 1px solid rgba(127, 90, 240, 0.2);
+    border-radius: var(--radius-sm);
     color: var(--accent-light);
-    font: inherit;
-    font-size: 15px;
-    font-weight: 600;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.back-btn i {
+    font-size: 16px;
+}
+
+.back-btn:active {
+    background: var(--accent);
+    color: white;
+    transform: scale(0.95);
 }
 
 /* --- Month Nav --- */
@@ -202,7 +216,19 @@ body {
 
 .cal-day.today {
     border-color: var(--accent);
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.cal-day.current,
+.cal-day.today.current {
+    border-color: var(--accent);
     background: rgba(127, 90, 240, 0.1);
+}
+
+
+.cal-day.current .cal-amount {
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .cal-day.has-expense .cal-amount {
@@ -337,6 +363,7 @@ body {
     width: 56px;
     height: 56px;
     border-radius: 50%;
+    margin-right: 2%;
     background: linear-gradient(135deg, var(--accent), #6c3fd4);
     color: white;
     border: none;
