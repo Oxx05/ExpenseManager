@@ -1008,7 +1008,6 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             currentUser = session.user;
             updateAuthUI();
-            setupPushNotifications();
             if (document.getElementById('screen-groups') && document.getElementById('screen-groups').classList.contains('active')) renderGroupsScreen();
         } else {
             currentUser = null;
