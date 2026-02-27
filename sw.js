@@ -30,6 +30,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Se for um pedido à API do Supabase, NÃO intercetar.
+    // Previne que o Firefox/Safari apaguem os headers de 'apikey' no evento CORS originado pelo Service Worker
+    if (event.request.url.includes('supabase.co')) {
+        return;
+    }
+
     // TEMPORARY GLOBAL CACHE BYPASS
     // Always fetch directly from network to clear stuck states and two-version bugs
     event.respondWith(fetch(event.request));
