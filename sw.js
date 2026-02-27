@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v9';
+const CACHE_NAME = 'expense-tracker-v10-nuked';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -30,33 +30,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Skip SheetJS CDN, API routes, and Auth Redirects from SW handling
-    const url = new URL(event.request.url);
-    if (
-        event.request.method !== 'GET' ||
-        url.hostname.includes('cdn.sheetjs.com') ||
-        url.pathname.includes('/api/') ||
-        url.search.includes('type=magiclink') ||
-        url.search.includes('type=recovery') ||
-        url.hash.includes('access_token=')
-    ) {
-        event.respondWith(fetch(event.request));
-        return;
-    }
-
-    // Network-First Strategy
-    // Try to get the latest fresh data from the network over checking the cache
-    event.respondWith(
-        fetch(event.request).then((response) => {
-            // Save a clone in the cache in case device goes offline later
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-            return response;
-        }).catch(() => {
-            // If offline or network fails, fallback to the latest stored cache
-            return caches.match(event.request);
-        })
-    );
+    // TEMPORARY GLOBAL CACHE BYPASS
+    // Always fetch directly from network to clear stuck states and two-version bugs
+    event.respondWith(fetch(event.request));
 });
 
 // ============================================
