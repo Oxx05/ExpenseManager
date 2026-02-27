@@ -819,6 +819,48 @@ function formatCurrency(amount) {
 }
 
 // ============================================
+// STRIPE PAYWALL
+// ============================================
+
+function showPaywall() {
+    const modal = document.getElementById('paywall-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+async function createCheckoutSession() {
+    if (!currentUser) return;
+    const btn = document.getElementById('upgrade-btn');
+    const oldText = btn.textContent;
+    btn.textContent = "A redirecionar...";
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/create-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: currentUser.id,
+                email: currentUser.email
+            })
+        });
+
+        const data = await response.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            alert('Não foi possível iniciar o pagamento. Tenta novamente mais tarde.');
+            btn.textContent = oldText;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao ligar ao servidor de pagamentos.');
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }
+}
+
+// ============================================
 // SUPABASE AUTH & GROUPS LOGIC
 // ============================================
 
