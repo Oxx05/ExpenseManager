@@ -126,7 +126,18 @@ const translations = {
         "js_no_group_expenses": "Ainda não há despesas neste grupo.",
         "js_paid_by": "Pago por",
         "js_confirm_settle_debt": "Queres liquidar esta dívida de",
-        "js_err_settle": "Erro ao liquidar dívida: "
+        "js_err_settle": "Erro ao liquidar dívida: ",
+        "js_select_dates": "Seleciona as datas de início e fim.",
+        "js_no_exp_period": "Sem despesas neste período.",
+        "js_sending_link": "A enviar link...",
+        "js_error": "Erro:",
+        "js_check_email_login": "Verifica o teu email para entrar!",
+        "js_new_group_prompt": "Nome do novo grupo:",
+        "js_err_create_group": "Erro ao criar grupo",
+        "js_err_user_not_found": "Utilizador não registado na aplicação.",
+        "js_err_add_member": "Erro ao adicionar membro ou já pertence ao grupo.",
+        "js_invalid_expense": "Despesa inválida",
+        "js_err_save": "Erro ao guardar:"
     },
     en: {
         // App
@@ -255,7 +266,18 @@ const translations = {
         "js_no_group_expenses": "No expenses in this group yet.",
         "js_paid_by": "Paid by",
         "js_confirm_settle_debt": "Do you want to settle this debt of",
-        "js_err_settle": "Error settling debt: "
+        "js_err_settle": "Error settling debt: ",
+        "js_select_dates": "Please select start and end dates.",
+        "js_no_exp_period": "No expenses in this period.",
+        "js_sending_link": "Sending link...",
+        "js_error": "Error:",
+        "js_check_email_login": "Check your email to log in!",
+        "js_new_group_prompt": "New group name:",
+        "js_err_create_group": "Error creating group",
+        "js_err_user_not_found": "User not registered in the application.",
+        "js_err_add_member": "Error adding member or already in group.",
+        "js_invalid_expense": "Invalid expense",
+        "js_err_save": "Error saving:"
     }
 };
 
