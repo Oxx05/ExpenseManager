@@ -1001,19 +1001,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 });
 
+let authStateChecked = false;
 supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (session) {
-        currentUser = session.user;
-        updateAuthUI();
-        setupPushNotifications();
-        if (document.getElementById('screen-groups').classList.contains('active')) renderGroupsScreen();
+    // Only attempt to mutate DOM if the DOM is ready
+    const update = () => {
+        if (session) {
+            currentUser = session.user;
+            updateAuthUI();
+            setupPushNotifications();
+            if (document.getElementById('screen-groups') && document.getElementById('screen-groups').classList.contains('active')) renderGroupsScreen();
+        } else {
+            currentUser = null;
+            updateAuthUI();
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', update);
     } else {
-        currentUser = null;
-        updateAuthUI();
+        update();
     }
 });
 
 function updateAuthUI() {
+    // Prevent errors if UI is not mounted yet
+    if (!document.getElementById('auth-section')) return;
+
     if (currentUser) {
         // Account Tab updates
         document.getElementById('auth-section').classList.add('hidden');
@@ -1030,18 +1043,21 @@ function updateAuthUI() {
             });
 
         // Groups Tab updates
-        document.getElementById('groups-unauth-msg').classList.add('hidden');
-        document.getElementById('groups-section').classList.remove('hidden');
+        if (document.getElementById('groups-unauth-msg')) {
+            document.getElementById('groups-unauth-msg').classList.add('hidden');
+            document.getElementById('groups-section').classList.remove('hidden');
+        }
 
-        // Update nav icons depending on screen (done by navigateTo generally, but just in case)
     } else {
         // Account Tab updates
         document.getElementById('auth-section').classList.remove('hidden');
         document.getElementById('account-logged-in').classList.add('hidden');
 
         // Groups Tab updates
-        document.getElementById('groups-unauth-msg').classList.remove('hidden');
-        document.getElementById('groups-section').classList.add('hidden');
+        if (document.getElementById('groups-unauth-msg')) {
+            document.getElementById('groups-unauth-msg').classList.remove('hidden');
+            document.getElementById('groups-section').classList.add('hidden');
+        }
     }
 }
 

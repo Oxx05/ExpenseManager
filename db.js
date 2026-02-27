@@ -147,12 +147,12 @@ class ExpenseDB {
     async deleteRecurringAndChildren(parentId, fromDate = null) {
         const all = await this.getAllExpenses();
         let toDelete = all.filter(e => e.id === parentId || e.parentId === parentId);
-        
+
         // If fromDate is provided, only delete from that date onwards
         if (fromDate) {
             toDelete = toDelete.filter(e => e.date >= fromDate);
         }
-        
+
         for (const e of toDelete) {
             await this.deleteExpense(e.id);
         }
@@ -206,9 +206,9 @@ class ExpenseDB {
     _advanceDate(d, type) {
         switch (type) {
             case 'daily': d.setDate(d.getDate() + 1); break;
-            case 'weekly': 
+            case 'weekly':
                 // Bug fix: ensure we advance exactly 7 days
-                d.setDate(d.getDate() + 7); 
+                d.setDate(d.getDate() + 7);
                 break;
             case 'monthly': d.setMonth(d.getMonth() + 1); break;
             case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
@@ -221,26 +221,26 @@ class ExpenseDB {
      */
     _advanceDateWithParams(d, recurringType, params) {
         const newDate = new Date(d);
-        
+
         if (recurringType === 'weekly' && params?.weeklyDays && params.weeklyDays.length > 0) {
             // Advance to next week, then find the first matching day
             const selectedDays = params.weeklyDays;
             let daysToAdd = 1;
-            
+
             while (daysToAdd <= 7) {
                 const testDate = new Date(d);
                 testDate.setDate(testDate.getDate() + daysToAdd);
                 const dow = testDate.getDay();
-                
+
                 if (selectedDays.includes(dow)) {
                     return testDate;
                 }
                 daysToAdd++;
             }
-            
+
             // If no day found in next 7 days, advance to next week and continue search
             return this._advanceDateWithParams(new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000), recurringType, params);
-        } 
+        }
         else if (recurringType === 'monthly' && params?.monthlyType === 'dayOfMonth') {
             // Always on the same day of the month
             newDate.setMonth(newDate.getMonth() + 1);
@@ -250,7 +250,7 @@ class ExpenseDB {
         else if (recurringType === 'monthly' && params?.monthlyType === 'dayOfWeek') {
             // e.g., second Tuesday of the month
             newDate.setMonth(newDate.getMonth() + 1);
-            return this._getNthWeekdayOfMonth(newDate.getFullYear(), newDate.getMonth(), 
+            return this._getNthWeekdayOfMonth(newDate.getFullYear(), newDate.getMonth(),
                 params.monthlyDayOfWeek || 1, params.monthlyWeekOfMonth || 1);
         }
         else if (recurringType === 'yearly' && params?.yearlyType === 'date') {
@@ -282,22 +282,36 @@ class ExpenseDB {
     _getNthWeekdayOfMonth(year, month, dayOfWeek, weekNumber) {
         let date = new Date(year, month, 1);
         let count = 0;
-        
+
         while (count < weekNumber) {
             if (date.getDay() === dayOfWeek) count++;
             if (count < weekNumber) date.setDate(date.getDate() + 1);
         }
-        
+
         return date;
     }
 
     _tx(storeName, mode, callback) {
         return new Promise((resolve, reject) => {
-            const tx = this.db.transaction(storeName, mode);
-            const store = tx.objectStore(storeName);
-            const request = callback(store);
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+            const executeTx = () => {
+                const tx = this.db.transaction(storeName, mode);
+                const store = tx.objectStore(storeName);
+                const request = callback(store);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            };
+
+            // Safety mechanism for cold-starts: if db is omitted, wait until ready.
+            if (!this.db) {
+                const checkDb = setInterval(() => {
+                    if (this.db) {
+                        clearInterval(checkDb);
+                        executeTx();
+                    }
+                }, 50);
+            } else {
+                executeTx();
+            }
         });
     }
 }
