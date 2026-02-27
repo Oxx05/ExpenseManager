@@ -297,6 +297,12 @@ function updateLanguage(lang) {
         }
     });
 
+    // Process title attributes (e.g., tooltips on FABs)
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        el.title = t(key);
+    });
+
     // Re-render JS views that rely on translated names (like calendar and summaries)
     if (typeof renderCalendar === 'function' && document.getElementById('screen-calendar').classList.contains('active')) {
         renderCalendar();
