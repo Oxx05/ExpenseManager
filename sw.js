@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v4';
+const CACHE_NAME = 'expense-tracker-v5';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -31,7 +31,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     // Skip SheetJS CDN — always fetch from network (needed for export)
-    if (event.request.url.includes('cdn.sheetjs.com')) {
+    if (event.request.url.includes('cdn.sheetjs.com') || event.request.url.includes('/api/')) {
         event.respondWith(
             fetch(event.request).catch(() => caches.match(event.request))
         );
@@ -45,6 +45,50 @@ self.addEventListener('fetch', (event) => {
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 return response;
             });
+        })
+    );
+});
+
+// ============================================
+// PUSH NOTIFICATIONS
+// ============================================
+
+self.addEventListener('push', function (event) {
+    if (event.data) {
+        try {
+            const payload = event.data.json();
+            const title = payload.title || 'Expense Tracker';
+            const options = {
+                body: payload.body || 'Tens uma nova notificação.',
+                icon: payload.icon || '/icons/icon-192.png',
+                badge: '/icons/icon-192.png',
+                vibrate: [100, 50, 100],
+                data: {
+                    dateOfArrival: Date.now(),
+                    primaryKey: 1
+                }
+            };
+            event.waitUntil(self.registration.showNotification(title, options));
+        } catch (e) {
+            console.error('Push payload invalid', e);
+        }
+    }
+});
+
+self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+            if (clientList.length > 0) {
+                let client = clientList[0];
+                for (let i = 0; i < clientList.length; i++) {
+                    if (clientList[i].focused) {
+                        client = clientList[i];
+                    }
+                }
+                return client.focus();
+            }
+            return clients.openWindow('/');
         })
     );
 });

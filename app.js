@@ -65,16 +65,18 @@ function navigateTo(screenId) {
     if (screenId === 'calendar') renderCalendar();
     if (screenId === 'categories') renderCategories();
     if (screenId === 'summary') renderSummary();
+    if (screenId === 'groups') {
+        if (typeof renderGroupsScreen === 'function') renderGroupsScreen();
+    }
 }
 
 // ============================================
 // CALENDAR
 // ============================================
 
-const MONTH_NAMES = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-];
+function getMonthNames() {
+    return [t('jan'), t('feb'), t('mar'), t('apr'), t('may'), t('jun'), t('jul'), t('aug'), t('sep'), t('oct'), t('nov'), t('dec')];
+}
 
 function setupCalendarNav() {
     document.getElementById('prev-month').addEventListener('click', () => {
@@ -129,11 +131,16 @@ function setupCalendarSwipe() {
 }
 
 async function renderCalendar() {
-    document.getElementById('month-label').textContent = `${MONTH_NAMES[currentMonth]} ${currentYear}`;
+    document.getElementById('month-label').textContent = `${getMonthNames()[currentMonth]} ${currentYear}`;
 
     // Use the projection method to include recurring entries
-    const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+    const localExpenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+    const groupExpenses = await fetchGroupExpensesForMonth(currentYear, currentMonth);
+    const expenses = [...localExpenses, ...groupExpenses];
+
     categoriesCache = await db.getAllCategories();
+    // Injetar uma categoria falsa para as despesas de grupo serem renderizadas com estilo
+    categoriesCache.push({ id: 'group_expense', name: t('js_group_badge'), icon: '👥', color: '#7f5af0' });
 
     // Group by date
     const byDate = {};
@@ -236,37 +243,43 @@ async function showDayDetail(dateStr, expenses) {
 
     let total = 0;
     for (const expense of expenses) {
-        const cat = categoriesCache.find(c => c.id === expense.categoryId) || { icon: '💰', color: '#666', name: 'Outros' };
+        const cat = categoriesCache.find(c => String(c.id) === String(expense.categoryId)) || { icon: '💰', color: '#666', name: t('js_others') };
         total += expense.amount;
 
-        const recurringLabel = expense.isRecurring
-            ? (RECURRING_LABELS[expense.recurringType] || expense.recurringType)
-            : (expense._recurringType ? RECURRING_LABELS[expense._recurringType] : null);
+        const recurringType = expense.isProjected ? expense._recurringType : expense.recurringType;
+        const recurringLabel = expense.isRecurring || expense.isProjected ? t('rec_' + recurringType) : null;
 
         const isProjected = expense.isProjected;
 
         const item = document.createElement('div');
         item.className = 'expense-item';
         if (isProjected) item.classList.add('projected');
+        if (expense.isGroupExpense) item.style.borderLeft = '3px solid #7f5af0';
+
         item.innerHTML = `
       <div class="expense-item-left">
         <div class="expense-item-cat" style="background:${cat.color}22">${cat.icon}</div>
         <div>
-          <div class="expense-item-desc">${expense.description}</div>
-          ${recurringLabel ? `<div class="expense-item-recurring">🔄 ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
+            <div style="display:flex; align-items:center; gap:6px;">
+                <div class="expense-item-desc">${expense.description}</div>
+                ${expense.isGroupExpense ? `<span style="font-size:10px; background:#7f5af033; color:#7f5af0; padding:2px 6px; border-radius:4px;">${t('js_group_badge')}</span>` : ''}
+            </div>
+            ${recurringLabel ? `<div class="expense-item-recurring">🔄 ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
         </div>
       </div>
       <div class="expense-item-amount">${formatCurrency(expense.amount)}</div>
     `;
 
-        if (!isProjected) {
+        if (!isProjected && !expense.isGroupExpense) {
             item.addEventListener('click', () => openEditExpense(expense));
+        } else if (expense.isGroupExpense) {
+            item.addEventListener('click', () => navigateTo('groups'));
         }
 
         list.appendChild(item);
     }
 
-    document.getElementById('day-detail-total').textContent = `Total: ${formatCurrency(total)}`;
+    document.getElementById('day-detail-total').textContent = `${t('js_total')} ${formatCurrency(total)}`;
     detail.classList.remove('hidden');
 
     // Scroll to detail
@@ -281,8 +294,34 @@ function setupExpenseForm() {
     document.getElementById('expense-form').addEventListener('submit', saveExpense);
     document.getElementById('expense-recurring').addEventListener('change', (e) => {
         document.getElementById('recurring-options').classList.toggle('hidden', !e.target.checked);
+        hideAllRecurringConfigs();
     });
+
+    // Listen to recurring type changes
+    document.querySelectorAll('input[name="recurring-type"]').forEach(radio => {
+        radio.addEventListener('change', updateRecurringConfig);
+    });
+
     document.getElementById('delete-btn').addEventListener('click', handleDelete);
+}
+
+function updateRecurringConfig() {
+    hideAllRecurringConfigs();
+    const recurringType = document.querySelector('input[name="recurring-type"]:checked')?.value;
+
+    if (recurringType === 'weekly') {
+        document.getElementById('weekly-config').classList.remove('hidden');
+    } else if (recurringType === 'monthly') {
+        document.getElementById('monthly-config').classList.remove('hidden');
+    } else if (recurringType === 'yearly') {
+        document.getElementById('yearly-config').classList.remove('hidden');
+    }
+}
+
+function hideAllRecurringConfigs() {
+    document.getElementById('weekly-config').classList.add('hidden');
+    document.getElementById('monthly-config').classList.add('hidden');
+    document.getElementById('yearly-config').classList.add('hidden');
 }
 
 function openAddExpense(dateStr = null) {
@@ -301,6 +340,13 @@ function openAddExpense(dateStr = null) {
     selectedCategoryId = categoriesCache.length > 0 ? categoriesCache[0].id : null;
     updateCategoryPickerUI();
 
+    // For weekly: only check the day of week of the selected date
+    const selectedDate = new Date(date + 'T00:00:00');
+    const dayOfWeek = selectedDate.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    document.querySelectorAll('input[name="weekly-day"]').forEach(cb => {
+        cb.checked = parseInt(cb.value) === dayOfWeek;
+    });
+
     navigateTo('add');
 }
 
@@ -318,6 +364,10 @@ function openEditExpense(expense) {
         document.getElementById('recurring-options').classList.remove('hidden');
         const radio = document.querySelector(`input[name="recurring-type"][value="${expense.recurringType}"]`);
         if (radio) radio.checked = true;
+
+        // Restore recurring parameters
+        restoreRecurringParams(expense);
+        updateRecurringConfig();
     } else {
         document.getElementById('recurring-options').classList.add('hidden');
     }
@@ -327,6 +377,35 @@ function openEditExpense(expense) {
     updateCategoryPickerUI();
 
     navigateTo('add');
+}
+
+function restoreRecurringParams(expense) {
+    const params = expense.recurringParams || {};
+
+    // Weekly
+    if (expense.recurringType === 'weekly' && params.weeklyDays) {
+        document.querySelectorAll('input[name="weekly-day"]').forEach(cb => {
+            cb.checked = params.weeklyDays.includes(parseInt(cb.value));
+        });
+    }
+
+    // Monthly
+    if (expense.recurringType === 'monthly') {
+        document.querySelector(`input[name="monthly-type"][value="${params.monthlyType || 'dayOfMonth'}"]`).checked = true;
+        document.getElementById('monthly-day').value = params.monthlyDay || 1;
+        document.getElementById('monthly-week').value = params.monthlyWeekOfMonth || 1;
+        document.getElementById('monthly-dow').value = params.monthlyDayOfWeek || 1;
+    }
+
+    // Yearly
+    if (expense.recurringType === 'yearly') {
+        document.querySelector(`input[name="yearly-type"][value="${params.yearlyType || 'date'}"]`).checked = true;
+        document.getElementById('yearly-day').value = params.yearlyDay || 1;
+        document.getElementById('yearly-month').value = params.yearlyMonth || 0;
+        document.getElementById('yearly-week').value = params.yearlyWeekOfMonth || 1;
+        document.getElementById('yearly-dow').value = params.yearlyDayOfWeek || 1;
+        document.getElementById('yearly-dow-month').value = params.yearlyDowMonth || 0;
+    }
 }
 
 function renderCategoryPicker() {
@@ -370,6 +449,17 @@ async function saveExpense(e) {
         nextOccurrence: null,
     };
 
+    // Capture recurring parameters
+    if (isRecurring) {
+        expense.recurringParams = captureRecurringParams(recurringType);
+
+        // Validate: weekly must have at least 1 day selected
+        if (recurringType === 'weekly' && (!expense.recurringParams.weeklyDays || expense.recurringParams.weeklyDays.length === 0)) {
+            alert('Seleciona pelo menos um dia da semana para a repetição semanal.');
+            return;
+        }
+    }
+
     if (id) {
         expense.id = parseInt(id);
         // Keep parentId if editing a child
@@ -381,6 +471,37 @@ async function saveExpense(e) {
 
     if (isRecurring) await db.processRecurring();
     navigateTo('calendar');
+}
+
+function captureRecurringParams(recurringType) {
+    const params = {};
+
+    if (recurringType === 'weekly') {
+        params.weeklyDays = Array.from(document.querySelectorAll('input[name="weekly-day"]:checked'))
+            .map(cb => parseInt(cb.value));
+    } else if (recurringType === 'monthly') {
+        const monthlyType = document.querySelector('input[name="monthly-type"]:checked')?.value || 'dayOfMonth';
+        params.monthlyType = monthlyType;
+        if (monthlyType === 'dayOfMonth') {
+            params.monthlyDay = parseInt(document.getElementById('monthly-day').value);
+        } else {
+            params.monthlyWeekOfMonth = parseInt(document.getElementById('monthly-week').value);
+            params.monthlyDayOfWeek = parseInt(document.getElementById('monthly-dow').value);
+        }
+    } else if (recurringType === 'yearly') {
+        const yearlyType = document.querySelector('input[name="yearly-type"]:checked')?.value || 'date';
+        params.yearlyType = yearlyType;
+        if (yearlyType === 'date') {
+            params.yearlyDay = parseInt(document.getElementById('yearly-day').value);
+            params.yearlyMonth = parseInt(document.getElementById('yearly-month').value);
+        } else {
+            params.yearlyWeekOfMonth = parseInt(document.getElementById('yearly-week').value);
+            params.yearlyDayOfWeek = parseInt(document.getElementById('yearly-dow').value);
+            params.yearlyDowMonth = parseInt(document.getElementById('yearly-dow-month').value);
+        }
+    }
+
+    return params;
 }
 
 // ============================================
@@ -398,9 +519,19 @@ function setupDeleteModal() {
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
     });
+    document.getElementById('delete-from-btn').addEventListener('click', async () => {
+        if (editingExpense) {
+            const parentId = editingExpense.parentId || editingExpense.id;
+            // Delete from this date onwards
+            await db.deleteRecurringAndChildren(parentId, editingExpense.date);
+        }
+        document.getElementById('delete-modal').classList.add('hidden');
+        navigateTo('calendar');
+    });
     document.getElementById('delete-all-btn').addEventListener('click', async () => {
         if (editingExpense) {
             const parentId = editingExpense.parentId || editingExpense.id;
+            // Delete all (no date limit)
             await db.deleteRecurringAndChildren(parentId);
         }
         document.getElementById('delete-modal').classList.add('hidden');
@@ -468,9 +599,10 @@ async function renderCategories() {
     list.querySelectorAll('.category-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
-            if (confirm('Eliminar esta categoria?')) {
+            if (confirm(t('js_confirm_delete_cat'))) {
                 await db.deleteCategory(id);
                 renderCategories();
+                renderCalendar();
             }
         });
     });
@@ -482,12 +614,16 @@ async function addCategory() {
     const color = document.getElementById('new-cat-color').value;
     if (!name) return;
     try {
+        if (categoriesCache.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+            alert(t('js_cat_exists'));
+            return;
+        }
         await db.addCategory({ name, icon, color });
         document.getElementById('new-cat-name').value = '';
         document.getElementById('new-cat-icon').value = '';
         categoriesCache = await db.getAllCategories();
         renderCategories();
-    } catch { alert('Já existe uma categoria com esse nome.'); }
+    } catch { alert('Erro ao adicionar categoria.'); } // Changed from original 'Já existe uma categoria com esse nome.' to a generic error, as specific check is now above.
 }
 
 // ============================================
@@ -508,11 +644,15 @@ function setupSummaryNav() {
 }
 
 async function renderSummary() {
-    document.getElementById('summary-month-label').textContent = `${MONTH_NAMES[summaryMonth]} ${summaryYear}`;
+    document.getElementById('summary-month-label').textContent = `${getMonthNames()[summaryMonth]} ${summaryYear}`;
 
-    // Include projected recurring for full picture
-    const expenses = await db.getExpensesWithRecurring(summaryYear, summaryMonth);
+    // Include projected recurring and group expenses for full picture
+    const localExpenses = await db.getExpensesWithRecurring(summaryYear, summaryMonth);
+    const groupExpenses = await fetchGroupExpensesForMonth(summaryYear, summaryMonth);
+    const expenses = [...localExpenses, ...groupExpenses];
+
     categoriesCache = await db.getAllCategories();
+    categoriesCache.push({ id: 'group_expense', name: t('js_group_badge'), icon: '👥', color: '#7f5af0' });
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
@@ -530,7 +670,7 @@ async function renderSummary() {
     chart.innerHTML = '';
 
     sorted.forEach(([catId, amount]) => {
-        const cat = categoriesCache.find(c => c.id === parseInt(catId)) || { icon: '💰', name: 'Outros', color: '#666' };
+        const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
         const pct = (amount / maxAmount) * 100;
         const percentOfTotal = ((amount / total) * 100).toFixed(1);
 
@@ -570,23 +710,25 @@ async function exportExcel() {
     const from = document.getElementById('export-from').value;
     const to = document.getElementById('export-to').value;
 
-    if (!from || !to) { alert('Seleciona as datas de início e fim.'); return; }
+    if (!from || !to) { alert(t('js_select_dates')); return; }
 
     const expenses = await db.getExpensesByDateRange(from, to);
     categoriesCache = await db.getAllCategories();
 
-    if (expenses.length === 0) { alert('Sem despesas neste período.'); return; }
+    if (expenses.length === 0) { alert(t('js_no_exp_period')); return; }
 
     expenses.sort((a, b) => a.date.localeCompare(b.date));
 
     const data = expenses.map(e => {
-        const cat = categoriesCache.find(c => c.id === e.categoryId) || { name: 'Outros' };
+        // Verify category exists or fallback
+        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') };
         return {
             'Data': e.date,
-            'Descrição': e.description,
             'Categoria': cat.name,
-            'Valor (€)': e.amount,
-            'Recorrente': e.isRecurring ? (RECURRING_LABELS[e.recurringType] || 'Sim') : 'Não',
+            'Tipo': e.isGroupExpense ? t('js_group_badge') : 'Pessoal',
+            'Recorrente': e.isRecurring ? (t('rec_' + e.recurringType) || 'Sim') : 'Não',
+            'Descrição': e.description,
+            'Valor': e.amount.toFixed(2)
         };
     });
 
@@ -666,4 +808,492 @@ function setupServiceWorker() {
 
 function formatCurrency(amount) {
     return amount.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+// ============================================
+// SUPABASE AUTH & GROUPS LOGIC
+// ============================================
+
+let currentUser = null;
+let currentGroup = null;
+let currentGroupMembers = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check active session
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) {
+        currentUser = session.user;
+    }
+    updateAuthUI();
+
+    // Auth Form (now in Account tab)
+    document.getElementById('auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('auth-email').value;
+        const msg = document.getElementById('auth-msg');
+        msg.textContent = t('js_sending_link');
+        msg.style.color = "var(--text-dim)";
+
+        const { error } = await supabaseClient.auth.signInWithOtp({
+            email,
+            options: { emailRedirectTo: window.location.origin }
+        });
+
+        if (error) {
+            msg.textContent = `${t('js_error')} ` + error.message;
+            msg.style.color = "var(--danger)";
+        } else {
+            msg.textContent = t('js_check_email_login');
+            msg.style.color = "var(--success)";
+        }
+    });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        updateAuthUI();
+        navigateTo('account');
+    });
+
+    // Create Group
+    document.getElementById('add-group-btn').addEventListener('click', async () => {
+        const name = prompt(t('js_new_group_prompt'));
+        if (!name || !currentUser) return;
+
+        const { data: group, error } = await supabaseClient
+            .from('groups')
+            .insert({ name: name, created_by: currentUser.id })
+            .select()
+            .single();
+
+        if (!error && group) {
+            // Add self to members
+            await supabaseClient.from('group_members').insert({ group_id: group.id, user_id: currentUser.id });
+            renderGroupsScreen();
+        } else {
+            alert(t('js_err_create_group'));
+        }
+    });
+
+    // Invite Member
+    document.getElementById('invite-btn').addEventListener('click', async () => {
+        const email = document.getElementById('invite-email').value;
+        if (!email || !currentGroup) return;
+
+        // 1. Encontrar o perfil do utilizador pelo email
+        const { data: profile } = await supabaseClient.from('profiles').select('id').eq('email', email).single();
+        if (!profile) {
+            alert(t('js_err_user_not_found'));
+            return;
+        }
+
+        // 2. Adicionar ao grupo
+        const { error } = await supabaseClient.from('group_members').insert({ group_id: currentGroup.id, user_id: profile.id });
+        if (error) alert(t('js_err_add_member'));
+        else {
+            document.getElementById('invite-email').value = '';
+            loadGroupDetail(currentGroup.id);
+        }
+    });
+
+    // Tabs inside Group
+    document.querySelectorAll('.group-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.group-tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.borderBottomColor = 'transparent';
+                t.style.color = 'var(--text-dim)';
+            });
+            tab.classList.add('active');
+            tab.style.borderBottomColor = 'var(--primary)';
+            tab.style.color = 'white';
+
+            document.querySelectorAll('.group-tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`group-${tab.dataset.tab}-tab`).classList.remove('hidden');
+        });
+    });
+
+    // Open Add Group Expense
+    document.getElementById('group-fab-add').addEventListener('click', () => {
+        if (!currentGroup) return;
+        document.getElementById('group-expense-form').reset();
+        document.getElementById('group-expense-date').value = new Date().toISOString().slice(0, 10);
+
+        // Populate payers dropdown
+        const payerSelect = document.getElementById('group-expense-payer');
+        payerSelect.innerHTML = '';
+        currentGroupMembers.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.profiles.id;
+            opt.textContent = m.profiles.name || m.profiles.email;
+            if (m.profiles.id === currentUser.id) opt.selected = true;
+            payerSelect.appendChild(opt);
+        });
+
+        // Populate splits (equal split by default)
+        const splitsContainer = document.getElementById('group-expense-splits');
+        splitsContainer.innerHTML = '';
+        currentGroupMembers.forEach(m => {
+            splitsContainer.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <label style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" class="split-checkbox" value="${m.profiles.id}" checked style="width:16px; height:16px; accent-color:var(--accent);">
+                        ${m.profiles.name || m.profiles.email}
+                    </label>
+                    <span class="split-amount-preview" data-id="${m.profiles.id}">0.00 €</span>
+                </div>
+            `;
+        });
+
+        // Recalculate splits on amount change or checkbox flip
+        const calcSplits = () => {
+            const total = parseFloat(document.getElementById('group-expense-amount').value) || 0;
+            const checkedBoxes = document.querySelectorAll('.split-checkbox:checked');
+            const splitVal = checkedBoxes.length > 0 ? total / checkedBoxes.length : 0;
+
+            document.querySelectorAll('.split-amount-preview').forEach(el => el.textContent = '0.00 €');
+            checkedBoxes.forEach(cb => {
+                document.querySelector(`.split-amount-preview[data-id="${cb.value}"]`).textContent = splitVal.toFixed(2) + ' €';
+            });
+        };
+
+        document.getElementById('group-expense-amount').addEventListener('input', calcSplits);
+        document.querySelectorAll('.split-checkbox').forEach(cb => cb.addEventListener('change', calcSplits));
+
+        navigateTo('add-group-expense');
+    });
+
+    // Submit Group Expense (Nativo com RPC anti-race conditions)
+    document.getElementById('group-expense-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const total = parseFloat(document.getElementById('group-expense-amount').value);
+        const desc = document.getElementById('group-expense-desc').value;
+        const date = document.getElementById('group-expense-date').value;
+        const paidBy = document.getElementById('group-expense-payer').value;
+
+        const checkedBoxes = document.querySelectorAll('.split-checkbox:checked');
+        if (checkedBoxes.length === 0 || total <= 0) return alert(t('js_invalid_expense'));
+
+        const splitVal = total / checkedBoxes.length;
+        const splits = [];
+        document.querySelectorAll('.split-checkbox').forEach(cb => {
+            if (cb.checked) splits.push({ user_id: cb.value, amount: splitVal });
+        });
+
+        const { error } = await supabaseClient.rpc('add_group_expense', {
+            p_group_id: currentGroup.id,
+            p_paid_by: paidBy,
+            p_amount: total,
+            p_description: desc,
+            p_date: date,
+            p_splits: splits
+        });
+
+        if (error) {
+            console.error(error);
+            alert(`${t('js_err_save')} ` + error.message);
+        } else {
+            loadGroupDetail(currentGroup.id);
+            navigateTo('group-detail');
+        }
+    });
+
+});
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (session) {
+        currentUser = session.user;
+        updateAuthUI();
+        setupPushNotifications();
+        if (document.getElementById('screen-groups').classList.contains('active')) renderGroupsScreen();
+    } else {
+        currentUser = null;
+        updateAuthUI();
+    }
+});
+
+function updateAuthUI() {
+    if (currentUser) {
+        // Account Tab updates
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('account-logged-in').classList.remove('hidden');
+
+        // Obter infos para exibir
+        supabaseClient.from('profiles').select('name, email').eq('id', currentUser.id).single()
+            .then(({ data }) => {
+                if (data) {
+                    document.getElementById('account-name').textContent = data.name || data.email;
+                    document.getElementById('account-email').textContent = data.email;
+                    document.getElementById('account-avatar').textContent = (data.name || data.email).charAt(0).toUpperCase();
+                }
+            });
+
+        // Groups Tab updates
+        document.getElementById('groups-unauth-msg').classList.add('hidden');
+        document.getElementById('groups-section').classList.remove('hidden');
+
+        // Update nav icons depending on screen (done by navigateTo generally, but just in case)
+    } else {
+        // Account Tab updates
+        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('account-logged-in').classList.add('hidden');
+
+        // Groups Tab updates
+        document.getElementById('groups-unauth-msg').classList.remove('hidden');
+        document.getElementById('groups-section').classList.add('hidden');
+    }
+}
+
+async function renderGroupsScreen() {
+    if (!currentUser) return;
+    const list = document.getElementById('groups-list');
+    list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_loading_groups')}</div>`;
+
+    // Get groups via group_members
+    const { data: members, error } = await supabaseClient
+        .from('group_members')
+        .select(`
+            group_id,
+            groups ( id, name, created_by )
+        `)
+        .eq('user_id', currentUser.id);
+
+    if (error || !members || members.length === 0) {
+        list.innerHTML = `<div style="text-align:center; padding:20px; border:1px dashed var(--border); border-radius:12px; color:var(--text-dim);">${t('js_no_groups')}</div>`;
+        return;
+    }
+
+    list.innerHTML = '';
+    members.forEach(m => {
+        const g = m.groups;
+        const role = g.created_by === currentUser.id ? t('js_creator') : t('js_member');
+        list.innerHTML += `
+            <div class="group-item" onclick="openGroupDetail('${g.id}', '${g.name}')">
+                <div>
+                    <div class="group-name">${g.name}</div>
+                    <div class="group-role">${role}</div>
+                </div>
+                <i class="fas fa-chevron-right" style="color:var(--text-muted);"></i>
+            </div>
+        `;
+    });
+}
+
+function openGroupDetail(id, name) {
+    currentGroup = { id, name };
+    document.getElementById('group-detail-title').textContent = name;
+    navigateTo('group-detail');
+    loadGroupDetail(id);
+}
+
+function navigateGroupBack() {
+    navigateTo('group-detail');
+}
+
+async function loadGroupDetail(groupId) {
+    // 1. Load Members
+    const { data: members } = await supabaseClient
+        .from('group_members')
+        .select('profiles(id, name, email)')
+        .eq('group_id', groupId);
+
+    currentGroupMembers = members || [];
+    const membersList = document.getElementById('group-members-list');
+    membersList.innerHTML = '';
+
+    const profileMap = {};
+    currentGroupMembers.forEach(m => {
+        profileMap[m.profiles.id] = m.profiles;
+        membersList.innerHTML += `
+            <div class="member-item">
+                <div class="member-avatar">${(m.profiles.name || m.profiles.email).charAt(0).toUpperCase()}</div>
+                <div>
+                    <div style="font-size:14px; font-weight:600;">${m.profiles.name || m.profiles.email}</div>
+                    <div style="font-size:12px; color:var(--text-dim);">${m.profiles.id === currentUser.id ? t('js_you') : ''}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    // 2. Load Debts
+    const { data: debts } = await supabaseClient
+        .from('debts')
+        .select('*')
+        .eq('group_id', groupId)
+        .gt('amount', 0);
+
+    const debtsList = document.getElementById('group-debts-list');
+    debtsList.innerHTML = '';
+
+    if (!debts || debts.length === 0) {
+        debtsList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_all_settled_debts')}</div>`;
+    } else {
+        debts.forEach(d => {
+            const isOwedToMe = d.creditor_id === currentUser.id;
+            const iOwe = d.debtor_id === currentUser.id;
+
+            const debtorName = profileMap[d.debtor_id]?.name || profileMap[d.debtor_id]?.email || t('js_someone');
+            const creditorName = profileMap[d.creditor_id]?.name || profileMap[d.creditor_id]?.email || t('js_someone');
+
+            let htmlClass = '';
+            let textHtml = '';
+            let btnHtml = '';
+
+            if (isOwedToMe) {
+                htmlClass = 'positive';
+                textHtml = `<strong>${debtorName}</strong> ${t('js_owes_you')}`;
+            } else if (iOwe) {
+                htmlClass = 'negative';
+                textHtml = `${t('js_you_owe')} <strong>${creditorName}</strong>`;
+                btnHtml = `<button onclick="settleDebt('${d.debtor_id}','${d.creditor_id}',${d.amount})" class="btn-small" style="background:var(--accent);">${t('js_btn_pay')}</button>`;
+            } else {
+                textHtml = `<strong>${debtorName}</strong> ${t('js_owes')} ${creditorName}`;
+            }
+
+            debtsList.innerHTML += `
+                <div class="debt-item ${htmlClass}">
+                    <div class="debt-desc">${textHtml}</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="debt-amount">${d.amount.toFixed(2)} €</div>
+                        ${btnHtml}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // 3. Load Expenses
+    const { data: expenses } = await supabaseClient
+        .from('group_expenses')
+        .select(`
+            id, amount, description, date,
+            paid_by,
+            profiles(name, email)
+        `)
+        .eq('group_id', groupId)
+        .order('date', { ascending: false })
+        .limit(30);
+
+    const expensesList = document.getElementById('group-expenses-list');
+    expensesList.innerHTML = '';
+
+    if (!expenses || expenses.length === 0) {
+        expensesList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_no_group_expenses')}</div>`;
+    } else {
+        expenses.forEach(e => {
+            const paidByName = e.paid_by === currentUser.id ? t('js_you') : (e.profiles?.name || e.profiles?.email || t('js_someone'));
+            expensesList.innerHTML += `
+                <div class="expense-item">
+                    <div class="expense-item-left">
+                        <div class="expense-item-cat" style="background:#4a4e6922">🤝</div>
+                        <div>
+                            <div class="expense-item-desc">${e.description}</div>
+                            <div class="expense-item-recurring">${t('js_paid_by')} ${paidByName} (${e.date})</div>
+                        </div>
+                    </div>
+                    <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
+                </div>
+            `;
+        });
+    }
+}
+
+window.settleDebt = async function (debtor_id, creditor_id, amount) {
+    if (confirm(`${t('js_confirm_settle_debt')} ${amount.toFixed(2)} €?`)) {
+        const { error } = await supabaseClient.rpc('settle_debt', {
+            p_group_id: currentGroup.id,
+            p_debtor_id: debtor_id,
+            p_creditor_id: creditor_id,
+            p_amount: amount
+        });
+        if (error) alert(`${t('js_err_settle')}` + error.message);
+        else loadGroupDetail(currentGroup.id);
+    }
+}
+
+async function fetchGroupExpensesForMonth(year, month) {
+    if (!currentUser) return [];
+
+    const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`;
+
+    const { data: expenses, error } = await supabaseClient
+        .from('group_expenses')
+        .select(`
+            id,
+            description,
+            date,
+            groups ( name ),
+            expense_splits!inner ( user_id, amount )
+        `)
+        .eq('expense_splits.user_id', currentUser.id)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+    if (error || !expenses) return [];
+
+    return expenses.map(e => ({
+        id: e.id,
+        description: `${e.groups.name} - ${e.description}`,
+        amount: e.expense_splits[0].amount,
+        date: e.date,
+        categoryId: 'group_expense',
+        isGroupExpense: true
+    }));
+}
+
+// ============================================
+// PUSH NOTIFICATIONS SETUP
+// ============================================
+
+const publicVapidKey = 'BKeh-8hl5uVuhVMsPl8v7vxEh32C4FSSmsMWmgjAHFUj0FjFnr7hc5PI-qZpuAGUvLbMxHiQhYNgoCiVgxsp5NE'; // Substituir pela chave gerada
+
+async function setupPushNotifications() {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') return;
+
+            const registration = await navigator.serviceWorker.ready;
+
+            // Verifica se já tem subscrição
+            let subscription = await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                });
+            }
+
+            // Converter chaves
+            const subJSON = subscription.toJSON();
+
+            // Guardar no Supabase
+            await supabaseClient.from('push_subscriptions').upsert({
+                user_id: currentUser.id,
+                endpoint: subJSON.endpoint,
+                auth_key: subJSON.keys.auth,
+                p256dh_key: subJSON.keys.p256dh
+            }, { onConflict: 'user_id, endpoint' });
+
+        } catch (error) {
+            console.error('Push registration error:', error);
+        }
+    }
+}
+
+// Helper para converter VAPID key
+function urlBase64ToUint8Array(base64String) {
+    if (!base64String || base64String.startsWith('CHAVE')) return new Uint8Array();
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }

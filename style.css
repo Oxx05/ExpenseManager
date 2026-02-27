@@ -214,14 +214,14 @@ body {
     background: var(--bg-card);
 }
 
-.cal-day.today {
+.cal-day.today,
+.cal-day.today.current {
     border-color: var(--accent);
     background: var(--accent);
     color: #ffffff;
 }
 
-.cal-day.current,
-.cal-day.today.current {
+.cal-day.current {
     border-color: var(--accent);
     background: rgba(127, 90, 240, 0.1);
 }
@@ -405,7 +405,8 @@ body {
 
 .form-group input[type="number"],
 .form-group input[type="text"],
-.form-group input[type="date"] {
+.form-group input[type="date"],
+.form-group input[type="email"] {
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -516,6 +517,44 @@ input[type="checkbox"]:checked+.toggle-switch::after {
 
 .radio-label input[type="radio"] {
     accent-color: var(--accent);
+}
+
+/* Selects and inputs for recurring config */
+select,
+.recurring-config input[type="number"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 8px 10px;
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+select:focus,
+.recurring-config input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-card);
+}
+
+select:hover:not(:disabled),
+.recurring-config input[type="number"]:hover:not(:disabled) {
+    border-color: var(--accent-light);
+}
+
+/* Selects within radio-labels */
+.radio-label select {
+    display: inline-block;
+    margin: 0 4px;
+}
+
+.radio-label input[type="number"] {
+    display: inline-block;
+    margin: 0 4px;
+    width: 50px;
 }
 
 /* Buttons */
@@ -858,6 +897,47 @@ input[type="checkbox"]:checked+.toggle-switch::after {
     padding: 8px 0;
 }
 
+/* --- Recurring configuration sections --- */
+.recurring-config {
+    padding: 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.recurring-config.hidden {
+    display: none;
+}
+
+.weekly-days-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+    gap: 8px;
+}
+
+.day-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+}
+
+.day-checkbox input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.day-checkbox:has(input[type="checkbox"]:checked) {
+    background: rgba(127, 90, 240, 0.2);
+    border: 1px solid rgba(127, 90, 240, 0.4);
+}
+
 /* --- Delete Modal --- */
 .modal-overlay {
     position: fixed;
@@ -963,6 +1043,113 @@ input[type="checkbox"]:checked+.toggle-switch::after {
     to {
         opacity: 1;
     }
+}
+
+/* --- Groups & Shared Expenses --- */
+.groups-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 20px;
+}
+
+.group-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.group-item:active {
+    background: var(--bg-card-hover);
+    transform: scale(0.98);
+}
+
+.group-name {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.group-role {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.debts-list,
+.members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.debt-item {
+    background: linear-gradient(135deg, rgba(229, 49, 112, 0.1), rgba(44, 182, 125, 0.05));
+    border: 1px solid rgba(229, 49, 112, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.debt-item.positive {
+    background: linear-gradient(135deg, rgba(44, 182, 125, 0.1), rgba(127, 90, 240, 0.05));
+    border-color: rgba(44, 182, 125, 0.2);
+}
+
+.debt-desc {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+}
+
+.debt-desc strong {
+    color: var(--text);
+}
+
+.debt-amount {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.debt-item.positive .debt-amount {
+    color: var(--success);
+}
+
+.debt-item:not(.positive) .debt-amount {
+    color: var(--danger);
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-sm);
+}
+
+.member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.auth-msg {
+    color: var(--success);
+    margin-top: 10px;
+    font-size: 14px;
 }
 
 /* Safe areas */

@@ -131,7 +131,7 @@ class ExpenseDB {
                 }
 
                 // Advance to next occurrence
-                current = this._advanceDate(new Date(current), expense.recurringType);
+                current = this._advanceDateWithParams(new Date(current), expense.recurringType, expense.recurringParams);
                 if (current <= startDate) break; // safety
             }
         }
@@ -141,10 +141,18 @@ class ExpenseDB {
 
     /**
      * Elimina uma despesa recorrente e todas as suas ocorrências geradas.
+     * @param {number} parentId - ID da despesa recorrente mãe ou qualquer filha
+     * @param {string} fromDate - Data (YYYY-MM-DD) para apagar apenas a partir dessa data. Se null, apaga tudo.
      */
-    async deleteRecurringAndChildren(parentId) {
+    async deleteRecurringAndChildren(parentId, fromDate = null) {
         const all = await this.getAllExpenses();
-        const toDelete = all.filter(e => e.id === parentId || e.parentId === parentId);
+        let toDelete = all.filter(e => e.id === parentId || e.parentId === parentId);
+        
+        // If fromDate is provided, only delete from that date onwards
+        if (fromDate) {
+            toDelete = toDelete.filter(e => e.date >= fromDate);
+        }
+        
         for (const e of toDelete) {
             await this.deleteExpense(e.id);
         }
@@ -183,7 +191,7 @@ class ExpenseDB {
                     all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id });
                 }
 
-                const d = this._advanceDate(new Date(nextDate + 'T00:00:00'), expense.recurringType);
+                const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
                 nextDate = d.toISOString().slice(0, 10);
             }
 
@@ -198,11 +206,89 @@ class ExpenseDB {
     _advanceDate(d, type) {
         switch (type) {
             case 'daily': d.setDate(d.getDate() + 1); break;
-            case 'weekly': d.setDate(d.getDate() + 7); break;
+            case 'weekly': 
+                // Bug fix: ensure we advance exactly 7 days
+                d.setDate(d.getDate() + 7); 
+                break;
             case 'monthly': d.setMonth(d.getMonth() + 1); break;
             case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
         }
         return d;
+    }
+
+    /**
+     * Avança uma data considerando os parâmetros de recorrência.
+     */
+    _advanceDateWithParams(d, recurringType, params) {
+        const newDate = new Date(d);
+        
+        if (recurringType === 'weekly' && params?.weeklyDays && params.weeklyDays.length > 0) {
+            // Advance to next week, then find the first matching day
+            const selectedDays = params.weeklyDays;
+            let daysToAdd = 1;
+            
+            while (daysToAdd <= 7) {
+                const testDate = new Date(d);
+                testDate.setDate(testDate.getDate() + daysToAdd);
+                const dow = testDate.getDay();
+                
+                if (selectedDays.includes(dow)) {
+                    return testDate;
+                }
+                daysToAdd++;
+            }
+            
+            // If no day found in next 7 days, advance to next week and continue search
+            return this._advanceDateWithParams(new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000), recurringType, params);
+        } 
+        else if (recurringType === 'monthly' && params?.monthlyType === 'dayOfMonth') {
+            // Always on the same day of the month
+            newDate.setMonth(newDate.getMonth() + 1);
+            newDate.setDate(params.monthlyDay || 1);
+            return newDate;
+        }
+        else if (recurringType === 'monthly' && params?.monthlyType === 'dayOfWeek') {
+            // e.g., second Tuesday of the month
+            newDate.setMonth(newDate.getMonth() + 1);
+            return this._getNthWeekdayOfMonth(newDate.getFullYear(), newDate.getMonth(), 
+                params.monthlyDayOfWeek || 1, params.monthlyWeekOfMonth || 1);
+        }
+        else if (recurringType === 'yearly' && params?.yearlyType === 'date') {
+            // Same day every year
+            newDate.setFullYear(newDate.getFullYear() + 1);
+            newDate.setMonth(params.yearlyMonth || 0);
+            newDate.setDate(params.yearlyDay || 1);
+            return newDate;
+        }
+        else if (recurringType === 'yearly' && params?.yearlyType === 'dayOfWeek') {
+            // e.g., second Monday of March
+            newDate.setFullYear(newDate.getFullYear() + 1);
+            return this._getNthWeekdayOfMonth(newDate.getFullYear(), params.yearlyDowMonth || 0,
+                params.yearlyDayOfWeek || 1, params.yearlyWeekOfMonth || 1);
+        }
+        else {
+            // Default behavior for daily or no special params
+            return this._advanceDate(newDate, recurringType);
+        }
+    }
+
+    /**
+     * Retorna a data do enésimo dia da semana num mês específico.
+     * @param {number} year - Ano
+     * @param {number} month - Mês (0-11)
+     * @param {number} dayOfWeek - Dia da semana (0=domingo, 1=segunda, ..., 6=sábado)
+     * @param {number} weekNumber - Qual semana (1=primeira, 2=segunda, etc.)
+     */
+    _getNthWeekdayOfMonth(year, month, dayOfWeek, weekNumber) {
+        let date = new Date(year, month, 1);
+        let count = 0;
+        
+        while (count < weekNumber) {
+            if (date.getDay() === dayOfWeek) count++;
+            if (count < weekNumber) date.setDate(date.getDate() + 1);
+        }
+        
+        return date;
     }
 
     _tx(storeName, mode, callback) {

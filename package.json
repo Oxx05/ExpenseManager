@@ -1,0 +1,23 @@
+{
+  "name": "expensemanager",
+  "version": "1.0.0",
+  "description": "App para gerir despesas",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Oxx05/ExpenseManager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Oxx05/ExpenseManager/issues"
+  },
+  "homepage": "https://github.com/Oxx05/ExpenseManager#readme",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

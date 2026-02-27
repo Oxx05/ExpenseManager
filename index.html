@@ -25,7 +25,7 @@
         <!-- ======= CALENDAR SCREEN ======= -->
         <div id="screen-calendar" class="screen active">
             <header class="screen-header">
-                <h1 class="app-title">💰 Despesas</h1>
+                <h1 class="app-title" data-i18n="app_title">💰 Despesas</h1>
             </header>
 
             <div class="month-nav">
@@ -35,12 +35,15 @@
             </div>
 
             <div class="month-total-bar">
-                <span class="month-total-label">Total do mês</span>
+                <span class="month-total-label" data-i18n="month_total_label">Total do mês</span>
                 <span id="month-total" class="month-total-value">0,00 €</span>
             </div>
 
             <div class="calendar-weekdays">
-                <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
+                <span data-i18n="day_mon">Seg</span><span data-i18n="day_tue">Ter</span><span
+                    data-i18n="day_wed">Qua</span><span data-i18n="day_thu">Qui</span><span
+                    data-i18n="day_fri">Sex</span><span data-i18n="day_sat">Sáb</span><span
+                    data-i18n="day_sun">Dom</span>
             </div>
             <div id="calendar-grid" class="calendar-grid"></div>
 
@@ -56,7 +59,7 @@
                 <div id="day-detail-total" class="day-detail-total"></div>
             </div>
 
-            <button id="fab-add" class="fab" title="Adicionar despesa">＋</button>
+            <button id="fab-add" class="fab" title="Adicionar despesa" data-i18n="add_expense_fab">＋</button>
         </div>
 
         <!-- ======= ADD/EDIT EXPENSE SCREEN ======= -->
@@ -65,35 +68,36 @@
                 <button class="back-btn" data-screen="calendar" aria-label="Voltar">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <h1 id="add-title">Nova Despesa</h1>
+                <h1 id="add-title" data-i18n="new_expense_title">Nova Despesa</h1>
             </header>
 
             <form id="expense-form" class="form">
                 <input type="hidden" id="expense-id" value="">
 
                 <div class="form-group">
-                    <label for="expense-amount">Valor (€)</label>
+                    <label for="expense-amount" data-i18n="expense_amount_label">Valor (€)</label>
                     <input type="number" id="expense-amount" step="0.01" min="0" placeholder="0,00" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="expense-desc">Descrição</label>
-                    <input type="text" id="expense-desc" placeholder="Ex: Supermercado" required>
+                    <label for="expense-desc" data-i18n="expense_desc_label">Descrição</label>
+                    <input type="text" id="expense-desc" data-i18n="expense_desc_placeholder"
+                        placeholder="Ex: Supermercado" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="expense-date">Data</label>
+                    <label for="expense-date" data-i18n="expense_date_label">Data</label>
                     <input type="date" id="expense-date" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Categoria</label>
+                    <label data-i18n="expense_cat_label">Categoria</label>
                     <div id="category-picker" class="category-picker"></div>
                 </div>
 
                 <div class="form-group">
                     <label class="toggle-label">
-                        <span>Despesa recorrente</span>
+                        <span data-i18n="expense_recurring_label">Despesa recorrente</span>
                         <input type="checkbox" id="expense-recurring">
                         <span class="toggle-switch"></span>
                     </label>
@@ -101,22 +105,162 @@
 
                 <div id="recurring-options" class="recurring-options hidden">
                     <label class="radio-label">
-                        <input type="radio" name="recurring-type" value="daily"> Diário
+                        <input type="radio" name="recurring-type" value="daily" checked> <span
+                            data-i18n="rec_daily">Diário</span>
                     </label>
                     <label class="radio-label">
-                        <input type="radio" name="recurring-type" value="weekly"> Semanal
+                        <input type="radio" name="recurring-type" value="weekly"> <span
+                            data-i18n="rec_weekly">Semanal</span>
                     </label>
                     <label class="radio-label">
-                        <input type="radio" name="recurring-type" value="monthly" checked> Mensal
+                        <input type="radio" name="recurring-type" value="monthly"> <span
+                            data-i18n="rec_monthly">Mensal</span>
                     </label>
                     <label class="radio-label">
-                        <input type="radio" name="recurring-type" value="yearly"> Anual
+                        <input type="radio" name="recurring-type" value="yearly"> <span
+                            data-i18n="rec_yearly">Anual</span>
                     </label>
                 </div>
 
+                <!-- Weekly configuration -->
+                <div id="weekly-config" class="recurring-config hidden">
+                    <label
+                        style="font-size: 13px; font-weight: 600; color: var(--text-dim); display: block; margin-bottom: 8px;"
+                        data-i18n="week_days">Dias
+                        da semana</label>
+                    <div class="weekly-days-grid">
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="1" checked> <span
+                                data-i18n="day_mon">Seg</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="2" checked> <span
+                                data-i18n="day_tue">Ter</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="3" checked> <span
+                                data-i18n="day_wed">Qua</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="4" checked> <span
+                                data-i18n="day_thu">Qui</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="5" checked> <span
+                                data-i18n="day_fri">Sex</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="6"> <span data-i18n="day_sat">Sáb</span>
+                        </label>
+                        <label class="day-checkbox">
+                            <input type="checkbox" name="weekly-day" value="0"> <span data-i18n="day_sun">Dom</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Monthly configuration -->
+                <div id="monthly-config" class="recurring-config hidden">
+                    <div class="form-group">
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-dim);"
+                            data-i18n="monthly_type">Tipo mensal</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="monthly-type" value="dayOfMonth" checked> <span
+                                    data-i18n="always_on_day">Sempre no dia</span>
+                                <input type="number" id="monthly-day" value="1" min="1" max="31">
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="monthly-type" value="dayOfWeek">
+                                <select id="monthly-week">
+                                    <option value="1" data-i18n="first_week">Primeira</option>
+                                    <option value="2" data-i18n="second_week">Segunda</option>
+                                    <option value="3" data-i18n="third_week">Terceira</option>
+                                    <option value="4" data-i18n="fourth_week">Quarta</option>
+                                    <option value="5" data-i18n="fifth_week">Quinta</option>
+                                </select>
+                                <select id="monthly-dow">
+                                    <option value="1" data-i18n="monday">Segunda</option>
+                                    <option value="2" data-i18n="tuesday">Terça</option>
+                                    <option value="3" data-i18n="wednesday">Quarta</option>
+                                    <option value="4" data-i18n="thursday">Quinta</option>
+                                    <option value="5" data-i18n="friday">Sexta</option>
+                                    <option value="6" data-i18n="saturday">Sábado</option>
+                                    <option value="0" data-i18n="sunday">Domingo</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yearly configuration -->
+                <div id="yearly-config" class="recurring-config hidden">
+                    <div class="form-group">
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-dim);"
+                            data-i18n="yearly_type">Tipo anual</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label class="radio-label">
+                                <input type="radio" name="yearly-type" value="date" checked> <span
+                                    data-i18n="fixed_date">Data fixa (dia</span>
+                                <input type="number" id="yearly-day" value="1" min="1" max="31">
+                                <span data-i18n="of_month">de</span>
+                                <select id="yearly-month">
+                                    <option value="0" data-i18n="jan">Janeiro</option>
+                                    <option value="1" data-i18n="feb">Fevereiro</option>
+                                    <option value="2" data-i18n="mar">Março</option>
+                                    <option value="3" data-i18n="apr">Abril</option>
+                                    <option value="4" data-i18n="may">Maio</option>
+                                    <option value="5" data-i18n="jun">Junho</option>
+                                    <option value="6" data-i18n="jul">Julho</option>
+                                    <option value="7" data-i18n="aug">Agosto</option>
+                                    <option value="8" data-i18n="sep">Setembro</option>
+                                    <option value="9" data-i18n="oct">Outubro</option>
+                                    <option value="10" data-i18n="nov">Novembro</option>
+                                    <option value="11" data-i18n="dec">Dezembro</option>
+                                </select>
+                                )
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="yearly-type" value="dayOfWeek">
+                                <select id="yearly-week">
+                                    <option value="1" data-i18n="first_week">Primeira</option>
+                                    <option value="2" data-i18n="second_week">Segunda</option>
+                                    <option value="3" data-i18n="third_week">Terceira</option>
+                                    <option value="4" data-i18n="fourth_week">Quarta</option>
+                                    <option value="5" data-i18n="fifth_week">Quinta</option>
+                                </select>
+                                <select id="yearly-dow">
+                                    <option value="1" data-i18n="monday">Segunda</option>
+                                    <option value="2" data-i18n="tuesday">Terça</option>
+                                    <option value="3" data-i18n="wednesday">Quarta</option>
+                                    <option value="4" data-i18n="thursday">Quinta</option>
+                                    <option value="5" data-i18n="friday">Sexta</option>
+                                    <option value="6" data-i18n="saturday">Sábado</option>
+                                    <option value="0" data-i18n="sunday">Domingo</option>
+                                </select>
+                                <span data-i18n="of_month">de</span>
+                                <select id="yearly-dow-month">
+                                    <option value="0" data-i18n="jan">Janeiro</option>
+                                    <option value="1" data-i18n="feb">Fevereiro</option>
+                                    <option value="2" data-i18n="mar">Março</option>
+                                    <option value="3" data-i18n="apr">Abril</option>
+                                    <option value="4" data-i18n="may">Maio</option>
+                                    <option value="5" data-i18n="jun">Junho</option>
+                                    <option value="6" data-i18n="jul">Julho</option>
+                                    <option value="7" data-i18n="aug">Agosto</option>
+                                    <option value="8" data-i18n="sep">Setembro</option>
+                                    <option value="9" data-i18n="oct">Outubro</option>
+                                    <option value="10" data-i18n="nov">Novembro</option>
+                                    <option value="11" data-i18n="dec">Dezembro</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-actions">
-                    <button type="submit" class="btn-primary" id="save-btn">Guardar</button>
-                    <button type="button" class="btn-danger hidden" id="delete-btn">Eliminar</button>
+                    <button type="submit" class="btn-primary" id="save-btn" data-i18n="btn_save">Guardar</button>
+                    <button type="button" class="btn-danger hidden" id="delete-btn"
+                        data-i18n="btn_delete">Eliminar</button>
                 </div>
             </form>
         </div>
@@ -124,12 +268,16 @@
         <!-- ======= DELETE CONFIRMATION MODAL ======= -->
         <div id="delete-modal" class="modal-overlay hidden">
             <div class="modal-card">
-                <h3>Eliminar despesa</h3>
-                <p id="delete-modal-text">Esta despesa é recorrente. O que queres fazer?</p>
+                <h3 data-i18n="delete_expense_title">Eliminar despesa</h3>
+                <p id="delete-modal-text" data-i18n="delete_recurring_text">Esta despesa é recorrente. O que queres
+                    fazer?</p>
                 <div class="modal-actions">
-                    <button id="delete-one-btn" class="btn-modal">Só esta</button>
-                    <button id="delete-all-btn" class="btn-modal btn-modal-danger">Todas as recorrências</button>
-                    <button id="delete-cancel-btn" class="btn-modal btn-modal-cancel">Cancelar</button>
+                    <button id="delete-one-btn" class="btn-modal" data-i18n="delete_only_this">Só esta</button>
+                    <button id="delete-from-btn" class="btn-modal btn-modal-danger" data-i18n="delete_from_here">Desta
+                        em diante</button>
+                    <button id="delete-all-btn" class="btn-modal btn-modal-danger" data-i18n="delete_all">Todas</button>
+                    <button id="delete-cancel-btn" class="btn-modal btn-modal-cancel"
+                        data-i18n="btn_cancel">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -141,16 +289,17 @@
                 <button class="back-btn" data-screen="calendar" aria-label="Voltar">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <h1>Categorias</h1>
+                <h1 data-i18n="categories_title">Categorias</h1>
             </header>
 
             <div id="categories-list" class="categories-list"></div>
 
             <div class="add-category-form">
-                <input type="text" id="new-cat-name" placeholder="Nova categoria..." maxlength="20">
+                <input type="text" id="new-cat-name" data-i18n="new_cat_placeholder" placeholder="Nova categoria..."
+                    maxlength="20">
                 <input type="text" id="new-cat-icon" placeholder="🏷️" maxlength="2" class="icon-input">
                 <input type="color" id="new-cat-color" value="#7f5af0" class="color-input">
-                <button id="add-cat-btn" class="btn-small">Adicionar</button>
+                <button id="add-cat-btn" class="btn-small" data-i18n="btn_add">Adicionar</button>
             </div>
         </div>
 
@@ -160,7 +309,7 @@
                 <button class="back-btn" data-screen="calendar" aria-label="Voltar">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <h1>Resumo</h1>
+                <h1 data-i18n="summary_title">Resumo</h1>
             </header>
 
             <div class="summary-period">
@@ -170,12 +319,167 @@
             </div>
 
             <div class="summary-total-card">
-                <span class="summary-total-label">Total</span>
+                <span class="summary-total-label" data-i18n="summary_total">Total</span>
                 <span id="summary-total" class="summary-total-value">0,00 €</span>
             </div>
 
             <div id="summary-chart" class="summary-chart"></div>
             <div id="summary-breakdown" class="summary-breakdown"></div>
+        </div>
+
+        <!-- ======= GROUPS SCREEN ======= -->
+        <div id="screen-groups" class="screen">
+            <header class="screen-header">
+                <h1 data-i18n="groups_title">👥 Grupos</h1>
+            </header>
+
+            <div id="auth-section" class="auth-section" style="padding:20px; text-align:center;">
+                <h2 data-i18n="restricted_access">Acesso Restrito</h2>
+                <p style="color:var(--text-dim); margin-bottom:20px;" data-i18n="restricted_desc">Precisas de ter sessão
+                    iniciada para usar os Grupos Partilhados.</p>
+                <button onclick="navigateTo('account')" class="btn-primary" style="margin-top:10px;"
+                    data-i18n="go_to_account">Ir para a Conta</button>
+            </div>
+
+            <div id="groups-section" class="groups-section hidden">
+                <div class="groups-header"
+                    style="display:flex; justify-content:space-between; align-items:center; padding:15px 20px;">
+                    <h2 style="font-size:1.2rem; margin:0;" data-i18n="my_groups">Os Meus Grupos</h2>
+                    <button id="add-group-btn" class="btn-small" data-i18n="new_group_btn">Novo Grupo</button>
+                </div>
+                <div id="groups-list" class="groups-list"></div>
+            </div>
+        </div>
+
+        <!-- ======= SINGLE GROUP DETAIL SCREEN ======= -->
+        <div id="screen-group-detail" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="groups" aria-label="Voltar">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 id="group-detail-title" data-i18n="group_detail_title">Grupo</h1>
+            </header>
+
+            <div class="group-tabs" style="display:flex; border-bottom:1px solid #333;">
+                <button class="group-tab active" data-tab="expenses" data-i18n="tab_expenses"
+                    style="flex:1; padding:15px; background:none; border:none; color:white; font-weight:bold; border-bottom:2px solid var(--primary);">Despesas</button>
+                <button class="group-tab" data-tab="balances" data-i18n="tab_balances"
+                    style="flex:1; padding:15px; background:none; border:none; color:var(--text-dim); font-weight:bold; border-bottom:2px solid transparent;">Saldos
+                    & Membros</button>
+            </div>
+
+            <div id="group-expenses-tab" class="group-tab-content active" style="padding-bottom:80px;">
+                <div id="group-expenses-list" class="day-detail-list"></div>
+                <button id="group-fab-add" class="fab" title="Adicionar Despesa de Grupo"
+                    data-i18n="add_group_expense_fab">＋</button>
+            </div>
+
+            <div id="group-balances-tab" class="group-tab-content hidden" style="padding:20px; padding-bottom:80px;">
+                <div id="group-debts-list" class="debts-list"></div>
+
+                <h3 data-i18n="group_members_title"
+                    style="margin-top:30px; margin-bottom:15px; color:var(--text-dim); font-size:14px; text-transform:uppercase; letter-spacing:1px;">
+                    Membros</h3>
+                <div id="group-members-list" class="members-list"></div>
+
+                <div class="add-member-form form-group"
+                    style="margin-top:20px; display:flex; flex-direction:row; align-items:center; gap:10px;">
+                    <input type="email" id="invite-email" data-i18n="invite_placeholder"
+                        placeholder="Email para convidar..." style="flex:1;">
+                    <button id="invite-btn" class="btn-small" style="height:44px;"
+                        data-i18n="btn_invite">Convidar</button>
+                </div>
+                <!-- Settle debt modal inside code via JS or simply auto-settle on click -->
+            </div>
+        </div>
+
+        <!-- ======= ADD GROUP EXPENSE SCREEN ======= -->
+        <div id="screen-add-group-expense" class="screen">
+            <header class="screen-header">
+                <button class="back-btn" data-screen="group-detail" aria-label="Voltar">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h1 data-i18n="new_group_expense_title">Nova Despesa</h1>
+            </header>
+
+            <form id="group-expense-form" class="form">
+                <div class="form-group">
+                    <label for="group-expense-amount" data-i18n="group_exp_amount">Valor Total (€)</label>
+                    <input type="number" id="group-expense-amount" step="0.01" min="0.01" placeholder="0,00" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="group-expense-desc" data-i18n="group_exp_desc">Descrição</label>
+                    <input type="text" id="group-expense-desc" data-i18n="group_exp_desc_placeholder"
+                        placeholder="Ex: Jantar de Sábado" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="group-expense-date" data-i18n="group_exp_date">Data</label>
+                    <input type="date" id="group-expense-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="group_exp_payer">Quem pagou?</label>
+                    <select id="group-expense-payer" required
+                        style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:white; font-size:16px; margin-top:8px; margin-bottom:8px;"></select>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="group_exp_splits">Divisão em partes iguais</label>
+                    <div id="group-expense-splits" class="splits-container"
+                        style="background:rgba(255,255,255,0.03); border-radius:12px; padding:15px; margin-top:8px;">
+                        <!-- Gerado dinamicamente no app.js -->
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary" data-i18n="btn_save_group_exp">Guardar Despesa</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ======= ACCOUNT SCREEN ======= -->
+        <div id="screen-account" class="screen">
+            <header class="screen-header">
+                <h1 data-i18n="account_title">👤 Conta</h1>
+                <!-- Language Selector -->
+                <select id="lang-selector" onchange="updateLanguage(this.value)"
+                    style="background:rgba(255,255,255,0.1); color:white; border:none; border-radius:8px; padding:6px 10px; font-weight:600;">
+                    <option value="pt" style="color:black;">PT</option>
+                    <option value="en" style="color:black;">EN</option>
+                </select>
+            </header>
+
+            <div id="auth-section" class="auth-section" style="padding:20px; text-align:center;">
+                <h2 data-i18n="your_account">A Tua Conta</h2>
+                <p style="color:var(--text-dim); margin-bottom:20px;" data-i18n="account_desc">Inicia sessão para
+                    sincronizar os teus grupos e dados partilhados.</p>
+                <form id="auth-form" class="form">
+                    <div class="form-group">
+                        <label for="auth-email" style="text-align:left;" data-i18n="email_address">Endereço de
+                            Email</label>
+                        <input type="email" id="auth-email" data-i18n="email_placeholder"
+                            placeholder="exemplo@email.com" required>
+                    </div>
+                    <button type="submit" class="btn-primary" id="auth-btn" style="margin-top:10px;"
+                        data-i18n="send_magic_link">Enviar Magic Link</button>
+                    <p id="auth-msg" class="auth-msg" style="margin-top:15px; font-size:14px;"></p>
+                </form>
+            </div>
+
+            <div id="account-logged-in" class="hidden" style="padding:20px;">
+                <div
+                    style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center;">
+                    <div id="account-avatar"
+                        style="width:64px; height:64px; border-radius:50%; background:var(--accent); color:white; font-size:28px; font-weight:bold; display:flex; align-items:center; justify-content:center; margin:0 auto 15px;">
+                        ?</div>
+                    <h2 id="account-name" style="margin-bottom:5px; font-size:18px;"></h2>
+                    <p id="account-email" style="color:var(--text-dim); font-size:14px; margin-bottom:20px;"></p>
+                    <button id="logout-btn" class="btn-danger" style="width:100%;" data-i18n="btn_logout">Sair da
+                        Conta</button>
+                </div>
+            </div>
         </div>
 
         <!-- ======= EXPORT SCREEN ======= -->
@@ -184,20 +488,21 @@
                 <button class="back-btn" data-screen="calendar" aria-label="Voltar">
                     <i class="fas fa-chevron-left"></i>
                 </button>
-                <h1>Exportar</h1>
+                <h1 data-i18n="export_title">Exportar</h1>
             </header>
 
             <div class="export-form">
                 <div class="form-group">
-                    <label for="export-from">De</label>
+                    <label for="export-from" data-i18n="export_from">De</label>
                     <input type="date" id="export-from">
                 </div>
                 <div class="form-group">
-                    <label for="export-to">Até</label>
+                    <label for="export-to" data-i18n="export_to">Até</label>
                     <input type="date" id="export-to">
                 </div>
-                <button id="export-btn" class="btn-primary">📥 Exportar Excel (.xlsx)</button>
-                <p class="export-hint">O ficheiro será descarregado automaticamente.</p>
+                <button id="export-btn" class="btn-primary" data-i18n="btn_export_excel">📥 Exportar Excel
+                    (.xlsx)</button>
+                <p class="export-hint" data-i18n="export_hint">O ficheiro será descarregado automaticamente.</p>
             </div>
         </div>
 
@@ -205,27 +510,34 @@
         <nav class="bottom-nav">
             <button class="nav-item active" data-screen="calendar">
                 <span class="nav-icon">📅</span>
-                <span class="nav-label">Calendário</span>
+                <span class="nav-label" data-i18n="nav_calendar">Calendário</span>
             </button>
             <button class="nav-item" data-screen="categories">
                 <span class="nav-icon">🏷️</span>
-                <span class="nav-label">Categorias</span>
+                <span class="nav-label" data-i18n="nav_categories">Categorias</span>
             </button>
             <button class="nav-item" data-screen="summary">
                 <span class="nav-icon">📊</span>
-                <span class="nav-label">Resumo</span>
+                <span class="nav-label" data-i18n="nav_summary">Resumo</span>
             </button>
-            <button class="nav-item" data-screen="export">
-                <span class="nav-icon">📤</span>
-                <span class="nav-label">Exportar</span>
+            <button class="nav-item" data-screen="groups">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label" data-i18n="nav_groups">Grupos</span>
+            </button>
+            <button class="nav-item" data-screen="account">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label" data-i18n="nav_account">Conta</span>
             </button>
         </nav>
     </div>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="translations.js"></script>
+    <script src="supabaseClient.js"></script>
     <script src="db.js"></script>
     <script src="app.js"></script>
-    
+
     <!-- Vercel Speed Insights -->
     <script>
         window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
