@@ -294,7 +294,7 @@ function t(key) {
     return key;
 }
 
-function updateLanguage(lang) {
+function updateLanguage(lang, executeRenders = true) {
     if (lang) {
         currentLang = lang;
         localStorage.setItem('appLang', lang);
@@ -326,14 +326,14 @@ function updateLanguage(lang) {
     });
 
     // Re-render JS views that rely on translated names (like calendar and summaries)
-    if (window.db && window.db.db) {
-        if (typeof renderCalendar === 'function' && document.getElementById('screen-calendar').classList.contains('active')) {
+    if (executeRenders && window.db && window.db.db) {
+        if (typeof renderCalendar === 'function' && document.getElementById('screen-calendar') && document.getElementById('screen-calendar').classList.contains('active')) {
             renderCalendar();
         }
-        if (typeof renderGroupsScreen === 'function' && document.getElementById('screen-groups').classList.contains('active')) {
+        if (typeof renderGroupsScreen === 'function' && document.getElementById('screen-groups') && document.getElementById('screen-groups').classList.contains('active')) {
             renderGroupsScreen();
         }
-        if (typeof renderSummary === 'function' && document.getElementById('screen-summary').classList.contains('active')) {
+        if (typeof renderSummary === 'function' && document.getElementById('screen-summary') && document.getElementById('screen-summary').classList.contains('active')) {
             renderSummary();
         }
     }
@@ -341,5 +341,5 @@ function updateLanguage(lang) {
 
 // Inicializar na carga da página
 document.addEventListener('DOMContentLoaded', () => {
-    updateLanguage();
+    updateLanguage(null, false);
 });

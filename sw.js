@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v8';
+const CACHE_NAME = 'expense-tracker-v9';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -33,15 +33,14 @@ self.addEventListener('fetch', (event) => {
     // Skip SheetJS CDN, API routes, and Auth Redirects from SW handling
     const url = new URL(event.request.url);
     if (
+        event.request.method !== 'GET' ||
         url.hostname.includes('cdn.sheetjs.com') ||
         url.pathname.includes('/api/') ||
         url.search.includes('type=magiclink') ||
         url.search.includes('type=recovery') ||
         url.hash.includes('access_token=')
     ) {
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match(event.request))
-        );
+        event.respondWith(fetch(event.request));
         return;
     }
 
