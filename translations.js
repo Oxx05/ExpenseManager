@@ -304,13 +304,17 @@ function updateLanguage(lang) {
     });
 
     // Re-render JS views that rely on translated names (like calendar and summaries)
-    if (typeof renderCalendar === 'function' && document.getElementById('screen-calendar').classList.contains('active')) {
-        renderCalendar();
+    if (window.db && window.db.db) {
+        if (typeof renderCalendar === 'function' && document.getElementById('screen-calendar').classList.contains('active')) {
+            renderCalendar();
+        }
+        if (typeof renderGroupsScreen === 'function' && document.getElementById('screen-groups').classList.contains('active')) {
+            renderGroupsScreen();
+        }
+        if (typeof renderSummary === 'function' && document.getElementById('screen-summary').classList.contains('active')) {
+            renderSummary();
+        }
     }
-    if (typeof renderGroupsScreen === 'function' && document.getElementById('screen-groups').classList.contains('active')) {
-        renderGroupsScreen();
-    }
-    // and others..
 }
 
 // Inicializar na carga da página
