@@ -478,8 +478,13 @@
                     <div id="account-avatar"
                         style="width:64px; height:64px; border-radius:50%; background:var(--accent); color:white; font-size:28px; font-weight:bold; display:flex; align-items:center; justify-content:center; margin:0 auto 15px;">
                         ?</div>
-                    <h2 id="account-name" style="margin-bottom:5px; font-size:18px;"></h2>
-                    <p id="account-email" style="color:var(--text-dim); font-size:14px; margin-bottom:20px;"></p>
+                    <h2 style="margin-bottom:5px;">
+                        <span id="account-name">Utilizador</span>
+                        <span id="pro-badge" class="hidden"
+                            style="background:var(--primary); color:white; font-size:12px; padding:2px 8px; border-radius:12px; vertical-align:middle; margin-left:8px; font-weight:bold;">PRO
+                            🌟</span>
+                    </h2>
+                    <p id="account-email" style="color:var(--text-dim); margin-bottom:15px; font-size:14px;">email</p>
                     <button id="logout-btn" class="btn-danger" style="width:100%;" data-i18n="btn_logout">Sair da
                         Conta</button>
                 </div>
@@ -533,6 +538,34 @@
                 <span class="nav-label" data-i18n="nav_account">Conta</span>
             </button>
         </nav>
+
+        <!-- ======= PAYWALL MODAL ======= -->
+        <div id="paywall-modal" class="modal hidden">
+            <div class="modal-content" style="text-align:center; max-width: 400px; padding: 30px 20px;">
+                <h2 style="margin-bottom: 10px; color: var(--primary);" data-i18n="pro_title">Desbloqueia o Premium 🌟
+                </h2>
+                <p style="color: var(--text-dim); margin-bottom: 25px; font-size: 14px;" data-i18n="pro_desc">Passa para
+                    a versão PRO e leva a tua gestão de despesas ao máximo nível.</p>
+                <ul
+                    style="text-align: left; list-style: none; margin-bottom: 30px; padding: 0; font-size: 15px; color: var(--text-color);">
+                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
+                            style="color: var(--success); margin-right: 10px;"></i> <span data-i18n="pro_groups">Grupos
+                            Partilhados Ilimitados</span></li>
+                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
+                            style="color: var(--success); margin-right: 10px;"></i> <span
+                            data-i18n="pro_categories">Categorias Personalizadas Ilimitadas</span></li>
+                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
+                            style="color: var(--success); margin-right: 10px;"></i> <span
+                            data-i18n="pro_export">Exportação Pessoal em Excel</span></li>
+                </ul>
+                <button id="upgrade-btn" class="btn-primary" style="margin-bottom: 15px; width:100%;"
+                    onclick="createCheckoutSession()" data-i18n="btn_upgrade">Fazer Upgrade por 1,99€/mês</button>
+                <div style="font-size: 12px; color: var(--text-dim); cursor: pointer; padding: 10px;"
+                    onclick="document.getElementById('paywall-modal').classList.add('hidden')"
+                    data-i18n="btn_no_thanks">Não, obrigado</div>
+            </div>
+        </div>
+
     </div>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>

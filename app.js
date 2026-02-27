@@ -609,6 +609,10 @@ async function renderCategories() {
 }
 
 async function addCategory() {
+    if (!currentUser?.is_pro && categoriesCache.length >= 8) {
+        showPaywall();
+        return;
+    }
     const name = document.getElementById('new-cat-name').value.trim();
     const icon = document.getElementById('new-cat-icon').value.trim() || '🏷️';
     const color = document.getElementById('new-cat-color').value;
@@ -707,6 +711,10 @@ function updateExportDates() {
 }
 
 async function exportExcel() {
+    if (!currentUser?.is_pro) {
+        showPaywall();
+        return;
+    }
     const from = document.getElementById('export-from').value;
     const to = document.getElementById('export-to').value;
 
@@ -858,6 +866,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Create Group
     document.getElementById('add-group-btn').addEventListener('click', async () => {
+        if (!currentUser?.is_pro) {
+            const { count } = await supabaseClient.from('group_members').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id);
+            if (count >= 1) {
+                showPaywall();
+                return;
+            }
+        }
+
         const name = prompt(t('js_new_group_prompt'));
         if (!name || !currentUser) return;
 
@@ -887,6 +903,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert(t('js_err_user_not_found'));
             return;
         }
+
 
         // 2. Adicionar ao grupo
         const { error } = await supabaseClient.from('group_members').insert({ group_id: currentGroup.id, user_id: profile.id });
@@ -1038,6 +1055,17 @@ function updateAuthUI() {
                     document.getElementById('account-name').textContent = data.name || data.email;
                     document.getElementById('account-email').textContent = data.email;
                     document.getElementById('account-avatar').textContent = (data.name || data.email).charAt(0).toUpperCase();
+                }
+            });
+
+        // Obter status PRO
+        supabaseClient.from('subscriptions').select('is_pro').eq('user_id', currentUser.id).single()
+            .then(({ data }) => {
+                currentUser.is_pro = data?.is_pro || false;
+                const badge = document.getElementById('pro-badge');
+                if (badge) {
+                    if (currentUser.is_pro) badge.classList.remove('hidden');
+                    else badge.classList.add('hidden');
                 }
             });
 

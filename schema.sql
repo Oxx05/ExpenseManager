@@ -11,12 +11,27 @@ CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
+-- Subscrições (Stripe Freemium)
+CREATE TABLE public.subscriptions (
+  user_id uuid references public.profiles(id) on delete cascade not null primary key,
+  is_pro boolean default false not null,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own subscription" ON public.subscriptions FOR SELECT USING (auth.uid() = user_id);
+
 -- Trigger para criar perfil automaticamente no SignUp
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
   INSERT INTO public.profiles (id, email, name)
   VALUES (new.id, new.email, split_part(new.email, '@', 1));
+  
+  INSERT INTO public.subscriptions (user_id, is_pro)
+  VALUES (new.id, false);
+  
   RETURN new;
 END;
 $$ LANGUAGE plpgsql security definer;
@@ -38,6 +53,21 @@ CREATE TABLE public.groups (
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can create groups" ON public.groups FOR INSERT WITH CHECK (auth.uid() = created_by);
 
+-- =========================================================================
+-- FUNÇÃO SEGURA PARA VERIFICAR MEMBROS (Evita Erro 42P17 Infinite Recursion no Postgres)
+-- Usa SECURITY DEFINER para correr como Admin e não ficar num loop infinito a ler as próprias regras
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.is_group_member(p_group_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.group_members 
+    WHERE group_id = p_group_id AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
 -- 2. Membros dos Grupos
 CREATE TABLE public.group_members (
   group_id uuid references public.groups(id) on delete cascade not null,
@@ -46,16 +76,16 @@ CREATE TABLE public.group_members (
   primary key (group_id, user_id)
 );
 ALTER TABLE public.group_members ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Members can view group members" ON public.group_members FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.group_members gm WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid())
+  public.is_group_member(group_id)
 );
-CREATE POLICY "Users can join groups" ON public.group_members FOR INSERT WITH CHECK (auth.uid() = user_id OR EXISTS (
-  SELECT 1 FROM public.groups g WHERE g.id = group_id AND g.created_by = auth.uid()
-));
+
+CREATE POLICY "Users can join groups" ON public.group_members FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- 1.1 Agora que group_members existe, adicionamos a policy de SELECT aos grupos
 CREATE POLICY "Members can view groups" ON public.groups FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.group_members WHERE group_id = groups.id AND user_id = auth.uid()) OR created_by = auth.uid()
+  public.is_group_member(id) OR created_by = auth.uid()
 );
 
 -- 3. Despesas dos Grupos
@@ -70,10 +100,10 @@ CREATE TABLE public.group_expenses (
 );
 ALTER TABLE public.group_expenses ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view expenses" ON public.group_expenses FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.group_members WHERE group_id = group_expenses.group_id AND user_id = auth.uid())
+  public.is_group_member(group_id)
 );
 CREATE POLICY "Members can insert expenses" ON public.group_expenses FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM public.group_members WHERE group_id = group_expenses.group_id AND user_id = auth.uid())
+  public.is_group_member(group_id)
 );
 
 -- 4. Divisões (Splits)
@@ -86,9 +116,8 @@ CREATE TABLE public.expense_splits (
 ALTER TABLE public.expense_splits ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view splits" ON public.expense_splits FOR SELECT USING (
   EXISTS (
-    SELECT 1 FROM public.group_members m 
-    JOIN public.group_expenses e ON e.group_id = m.group_id
-    WHERE e.id = expense_splits.expense_id AND m.user_id = auth.uid()
+    SELECT 1 FROM public.group_expenses e 
+    WHERE e.id = expense_splits.expense_id AND public.is_group_member(e.group_id)
   )
 );
 CREATE POLICY "Members can insert splits" ON public.expense_splits FOR INSERT WITH CHECK (true);
@@ -105,7 +134,7 @@ CREATE TABLE public.debts (
 );
 ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Members can view debts" ON public.debts FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.group_members WHERE group_id = debts.group_id AND user_id = auth.uid())
+  public.is_group_member(group_id)
 );
 CREATE POLICY "Members can update debts via Edge Function" ON public.debts FOR ALL USING (true) WITH CHECK (true);
 
