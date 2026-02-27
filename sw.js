@@ -1,4 +1,4 @@
-const CACHE_NAME = 'expense-tracker-v6';
+const CACHE_NAME = 'expense-tracker-v7';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Skip SheetJS CDN — always fetch from network (needed for export)
+    // Skip SheetJS CDN & API routes from SW handling
     if (event.request.url.includes('cdn.sheetjs.com') || event.request.url.includes('/api/')) {
         event.respondWith(
             fetch(event.request).catch(() => caches.match(event.request))
@@ -38,13 +38,17 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
+    // Network-First Strategy
+    // Try to get the latest fresh data from the network over checking the cache
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            return cached || fetch(event.request).then((response) => {
-                const clone = response.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-                return response;
-            });
+        fetch(event.request).then((response) => {
+            // Save a clone in the cache in case device goes offline later
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            return response;
+        }).catch(() => {
+            // If offline or network fails, fallback to the latest stored cache
+            return caches.match(event.request);
         })
     );
 });
