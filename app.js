@@ -809,10 +809,14 @@ async function renderSummary() {
     const chart = document.getElementById('summary-chart');
     let chartHtml = '';
 
-    sorted.forEach(([catId, amount]) => {
+    sorted.forEach(([catId, amount], index) => {
         let cat;
-        if (catId === 'group_expense') {
-            cat = { icon: '👥', name: t('js_group_badge') || 'Grupo', color: '#7f5af0' };
+        if (String(catId).startsWith('group_expense_')) {
+            const groupNameText = catId.substring('group_expense_'.length);
+            // Basic color palette for distinct groups
+            const groupColors = ['#7f5af0', '#2cb67d', '#ef476f', '#ffd166', '#118ab2', '#073b4c'];
+            const color = groupColors[index % groupColors.length];
+            cat = { icon: '👥', name: groupNameText, color: color };
         } else {
             cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
         }
@@ -884,10 +888,13 @@ async function renderSummary() {
                 let arcs = '';
                 let legendHtml = '';
 
-                sorted.forEach(([catId, amount]) => {
+                sorted.forEach(([catId, amount], index) => {
                     let cat;
-                    if (catId === 'group_expense') {
-                        cat = { icon: '👥', name: t('js_group_badge') || 'Grupo', color: '#7f5af0' };
+                    if (String(catId).startsWith('group_expense_')) {
+                        const groupNameText = catId.substring('group_expense_'.length);
+                        const groupColors = ['#7f5af0', '#2cb67d', '#ef476f', '#ffd166', '#118ab2', '#073b4c'];
+                        const color = groupColors[index % groupColors.length];
+                        cat = { icon: '👥', name: groupNameText, color: color };
                     } else {
                         cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
                     }
@@ -2275,7 +2282,7 @@ async function fetchGroupExpensesForMonth(year, month) {
         description: `${e.groups.name} - ${e.description}`,
         amount: e.expense_splits[0].amount,
         date: e.date,
-        categoryId: 'group_expense',
+        categoryId: `group_expense_${e.groups.name}`,
         isGroupExpense: true,
         groupName: e.groups.name
     }));
@@ -2304,7 +2311,7 @@ async function fetchGroupExpensesForRange(from, to) {
         description: `${e.groups.name} - ${e.description}`,
         amount: e.expense_splits[0].amount,
         date: e.date,
-        categoryId: 'group_expense',
+        categoryId: `group_expense_${e.groups.name}`,
         isGroupExpense: true,
         groupName: e.groups.name
     }));
