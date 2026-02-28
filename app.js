@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCategoryForm();
     setupSummaryNav();
     setupExport();
+    setupSearch();
     setupServiceWorker();
 
     renderCalendar();
@@ -61,17 +62,47 @@ window.setButtonLoading = function (btn, isLoading, loadingText = '') {
 // NAVIGATION
 // ============================================
 
+let navigationStack = ['calendar']; // Track screen history
+let isNavigatingBack = false; // Prevent double-push during popstate
+
 function setupNavigation() {
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
     });
     document.querySelectorAll('.back-btn').forEach(btn => {
-        btn.addEventListener('click', () => navigateTo(btn.dataset.screen));
+        btn.addEventListener('click', () => {
+            // Use browser back for back-btn clicks (triggers popstate)
+            if (navigationStack.length > 1) {
+                history.back();
+            } else {
+                navigateTo(btn.dataset.screen);
+            }
+        });
     });
     document.getElementById('fab-add').addEventListener('click', () => openAddExpense(selectedDayDate));
+
+    // Set initial state
+    history.replaceState({ screen: 'calendar' }, '', '');
+
+    // Handle Android/iOS back button
+    window.addEventListener('popstate', (e) => {
+        isNavigatingBack = true;
+        if (e.state && e.state.screen) {
+            showScreen(e.state.screen);
+            // Remove current from stack
+            if (navigationStack.length > 1) navigationStack.pop();
+        } else {
+            // At root — push state again to prevent app close
+            showScreen('calendar');
+            navigationStack = ['calendar'];
+            history.pushState({ screen: 'calendar' }, '', '');
+        }
+        isNavigatingBack = false;
+    });
 }
 
-function navigateTo(screenId) {
+// Internal: just show the screen without touching history
+function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(`screen-${screenId}`).classList.add('active');
 
@@ -84,6 +115,22 @@ function navigateTo(screenId) {
     if (screenId === 'summary') renderSummary();
     if (screenId === 'groups') {
         if (typeof renderGroupsScreen === 'function') renderGroupsScreen();
+    }
+}
+
+function navigateTo(screenId) {
+    showScreen(screenId);
+
+    // Push to browser history (unless we're handling popstate)
+    if (!isNavigatingBack) {
+        // For main tabs, reset stack to just have the tab
+        const mainTabs = ['calendar', 'categories', 'summary', 'groups', 'account'];
+        if (mainTabs.includes(screenId)) {
+            navigationStack = [screenId];
+        } else {
+            navigationStack.push(screenId);
+        }
+        history.pushState({ screen: screenId }, '', '');
     }
 }
 
@@ -597,6 +644,8 @@ async function renderCategories() {
     const list = document.getElementById('categories-list');
     list.innerHTML = '';
 
+    const isPro = currentUser?.is_pro;
+
     categoriesCache.forEach(cat => {
         const catExpenses = allExpenses.filter(e => e.categoryId === cat.id);
         const count = catExpenses.length;
@@ -604,12 +653,27 @@ async function renderCategories() {
 
         const item = document.createElement('div');
         item.className = 'category-item';
+
+        let budgetHtml = '';
+        if (isPro) {
+            budgetHtml = `
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+                <span style="font-size:11px; color:var(--text-muted);">🎯</span>
+                <input type="number" step="1" min="0" placeholder="${t('budget_placeholder') || 'Orçamento'}"
+                    class="budget-input" data-cat-id="${cat.id}"
+                    value="${cat.budget || ''}"
+                    style="width:80px; padding:3px 6px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:11px; text-align:right;">
+                <span style="font-size:11px; color:var(--text-muted);">€/mês</span>
+            </div>`;
+        }
+
         item.innerHTML = `
       <div class="category-item-left">
         <div class="category-item-icon" style="background:${cat.color}22">${cat.icon}</div>
         <div>
           <div class="category-item-name">${cat.name}</div>
           <div class="category-item-count">${count} despesas · ${formatCurrency(total)}</div>
+          ${budgetHtml}
         </div>
       </div>
       <button class="category-delete-btn" data-id="${cat.id}" title="Eliminar">🗑️</button>
@@ -617,6 +681,7 @@ async function renderCategories() {
         list.appendChild(item);
     });
 
+    // Delete handlers
     list.querySelectorAll('.category-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
@@ -625,6 +690,22 @@ async function renderCategories() {
                 renderCategories();
                 renderCalendar();
             }
+        });
+    });
+
+    // Budget input handlers (debounced save)
+    list.querySelectorAll('.budget-input').forEach(input => {
+        let saveTimeout;
+        input.addEventListener('input', () => {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                const catId = parseInt(input.dataset.catId);
+                const cat = categoriesCache.find(c => c.id === catId);
+                if (cat) {
+                    cat.budget = parseFloat(input.value) || 0;
+                    await db.updateCategory(cat);
+                }
+            }, 500);
         });
     });
 }
@@ -682,6 +763,41 @@ async function renderSummary() {
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
 
+    // --- Month-over-Month Comparison ---
+    let prevMonth = summaryMonth - 1;
+    let prevYear = summaryYear;
+    if (prevMonth < 0) { prevMonth = 11; prevYear--; }
+
+    const prevLocalExpenses = await db.getExpensesWithRecurring(prevYear, prevMonth);
+    const prevGroupExpenses = await fetchGroupExpensesForMonth(prevYear, prevMonth);
+    const prevExpenses = [...prevLocalExpenses, ...prevGroupExpenses];
+    const prevTotal = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+    // Build previous month by-category
+    const prevByCat = {};
+    prevExpenses.forEach(e => {
+        if (!prevByCat[e.categoryId]) prevByCat[e.categoryId] = 0;
+        prevByCat[e.categoryId] += e.amount;
+    });
+
+    // Show total comparison badge
+    const comparisonEl = document.getElementById('summary-comparison');
+    if (comparisonEl) {
+        if (prevTotal > 0 && total > 0) {
+            const deltaPercent = Number(((total - prevTotal) / prevTotal * 100).toFixed(0));
+            const deltaSign = deltaPercent > 0 ? '+' : '';
+            const deltaColor = deltaPercent > 0 ? 'var(--danger)' : deltaPercent < 0 ? 'var(--success)' : 'var(--text-muted)';
+            const arrow = deltaPercent > 0 ? '↑' : deltaPercent < 0 ? '↓' : '≈';
+            comparisonEl.innerHTML = `<span style="color:${deltaColor}; font-weight:700; font-size:13px;">${arrow} ${deltaSign}${deltaPercent}% <span style="font-weight:400; color:var(--text-muted);">${t('vs_last_month') || 'vs mês anterior'}</span></span>`;
+            comparisonEl.classList.remove('hidden');
+        } else if (total > 0 && prevTotal === 0) {
+            comparisonEl.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">${t('no_prev_data') || 'Sem dados do mês anterior'}</span>`;
+            comparisonEl.classList.remove('hidden');
+        } else {
+            comparisonEl.classList.add('hidden');
+        }
+    }
+
     const byCat = {};
     expenses.forEach(e => {
         if (!byCat[e.categoryId]) byCat[e.categoryId] = 0;
@@ -699,19 +815,124 @@ async function renderSummary() {
         const pct = (amount / maxAmount) * 100;
         const percentOfTotal = ((amount / total) * 100).toFixed(1);
 
+        // Budget indicator
+        let budgetBadge = '';
+        if (currentUser?.is_pro && cat.budget && cat.budget > 0) {
+            const budgetPct = (amount / cat.budget) * 100;
+            let badgeColor = 'var(--success)';
+            let badgeLabel = `${budgetPct.toFixed(0)}%`;
+            if (budgetPct >= 90) {
+                badgeColor = 'var(--danger)';
+                badgeLabel = budgetPct >= 100 ? `⚠️ ${budgetPct.toFixed(0)}%` : badgeLabel;
+            } else if (budgetPct >= 70) {
+                badgeColor = '#f0a500';
+            }
+            budgetBadge = `<span style="font-size:10px; color:${badgeColor}; font-weight:700; margin-left:4px;">${badgeLabel} de ${cat.budget}€</span>`;
+        }
+
+        // Month-over-month per-category delta
+        let catDelta = '';
+        const prevAmt = prevByCat[catId] || 0;
+        if (prevAmt > 0) {
+            const catDeltaPct = ((amount - prevAmt) / prevAmt * 100).toFixed(0);
+            if (Math.abs(catDeltaPct) >= 10) {
+                const dColor = catDeltaPct > 0 ? 'var(--danger)' : 'var(--success)';
+                const dArrow = catDeltaPct > 0 ? '↑' : '↓';
+                const dSign = catDeltaPct > 0 ? '+' : '';
+                catDelta = `<small style="color:${dColor}; font-size:10px;">${dArrow}${dSign}${catDeltaPct}%</small>`;
+            }
+        }
+
         chart.innerHTML += `
       <div class="chart-bar-row">
-        <div class="chart-label">${cat.icon} ${cat.name}</div>
+        <div class="chart-label">${cat.icon} ${cat.name} ${budgetBadge}</div>
         <div class="chart-bar-bg">
           <div class="chart-bar-fill" style="width:${pct}%;background:${cat.color}"></div>
         </div>
-        <div class="chart-bar-value">${formatCurrency(amount)}<br><small>${percentOfTotal}%</small></div>
+        <div class="chart-bar-value">${formatCurrency(amount)}<br><small>${percentOfTotal}%</small> ${catDelta}</div>
       </div>
     `;
     });
 
     if (sorted.length === 0) {
         chart.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Sem despesas neste mês.</p>';
+    }
+
+    // --- PRO Charts: Donut + Daily Trend ---
+    const donutSection = document.getElementById('summary-donut-section');
+    const dailyTrend = document.getElementById('summary-daily-trend');
+    const proHint = document.getElementById('summary-pro-hint');
+
+    if (currentUser?.is_pro && sorted.length > 0) {
+        // Show PRO charts
+        if (donutSection) donutSection.classList.remove('hidden');
+        if (dailyTrend) dailyTrend.classList.remove('hidden');
+        if (proHint) proHint.classList.add('hidden');
+
+        // --- Donut Chart (SVG) ---
+        const donutContainer = document.getElementById('summary-donut-chart');
+        const legendContainer = document.getElementById('summary-donut-legend');
+        if (donutContainer && legendContainer) {
+            const radius = 50;
+            const circumference = 2 * Math.PI * radius;
+            let offset = 0;
+            let arcs = '';
+            let legendHtml = '';
+
+            sorted.forEach(([catId, amount]) => {
+                const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+                const pct = amount / total;
+                const dashLen = pct * circumference;
+                const dashGap = circumference - dashLen;
+
+                arcs += `<circle cx="70" cy="70" r="${radius}" fill="none" stroke="${cat.color}" stroke-width="20"
+                    stroke-dasharray="${dashLen} ${dashGap}" stroke-dashoffset="${-offset}"
+                    transform="rotate(-90 70 70)" style="transition: all 0.5s ease;" />`;
+                offset += dashLen;
+
+                legendHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                    <span style="width:10px;height:10px;border-radius:50%;background:${cat.color};flex-shrink:0;"></span>
+                    <span style="color:var(--text-dim);">${cat.icon} ${cat.name}</span>
+                    <span style="color:var(--text);font-weight:600;margin-left:auto;">${((amount / total) * 100).toFixed(0)}%</span>
+                </div>`;
+            });
+
+            donutContainer.innerHTML = `<svg viewBox="0 0 140 140" style="width:100%;height:100%;">
+                <circle cx="70" cy="70" r="${radius}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20"/>
+                ${arcs}
+                <text x="70" y="70" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="14" font-weight="800">${formatCurrency(total)}</text>
+            </svg>`;
+            legendContainer.innerHTML = legendHtml;
+        }
+
+        // --- Daily Trend (Mini Bar Chart) ---
+        const trendContainer = document.getElementById('daily-trend-bars');
+        if (trendContainer) {
+            const lastDay = new Date(summaryYear, summaryMonth + 1, 0).getDate();
+            const byDay = {};
+            expenses.forEach(e => {
+                const day = parseInt(e.date.split('-')[2]);
+                if (!byDay[day]) byDay[day] = 0;
+                byDay[day] += e.amount;
+            });
+
+            const maxDay = Math.max(...Object.values(byDay), 1);
+            let barsHtml = '';
+            for (let d = 1; d <= lastDay; d++) {
+                const val = byDay[d] || 0;
+                const pct = (val / maxDay) * 100;
+                const barColor = val > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
+                const minH = val > 0 ? Math.max(pct, 5) : 3;
+                barsHtml += `<div title="Dia ${d}: ${val.toFixed(2)} €" style="flex:1;height:${minH}%;background:${barColor};border-radius:3px 3px 0 0;min-width:3px;transition:height 0.3s ease;cursor:pointer;"></div>`;
+            }
+            trendContainer.innerHTML = barsHtml;
+        }
+    } else {
+        // Free user: hide charts, show upgrade hint
+        if (donutSection) donutSection.classList.add('hidden');
+        if (dailyTrend) dailyTrend.classList.add('hidden');
+        if (proHint && sorted.length > 0) proHint.classList.remove('hidden');
+        else if (proHint) proHint.classList.add('hidden');
     }
 }
 
@@ -741,48 +962,132 @@ async function exportExcel() {
 
     if (!from || !to) { alert(t('js_select_dates')); return; }
 
-    const expenses = await db.getExpensesByDateRange(from, to);
+    const btn = document.getElementById('export-btn');
+    setButtonLoading(btn, true, t('js_exporting') || 'A exportar...');
+
+    const localExpenses = await db.getExpensesByDateRange(from, to);
+    const groupExpenses = currentUser ? await fetchGroupExpensesForRange(from, to) : [];
+    const expenses = [...localExpenses, ...groupExpenses];
     categoriesCache = await db.getAllCategories();
+    categoriesCache.push({ id: 'group_expense', name: t('js_group_badge') || 'Grupo', icon: '👥', color: '#7f5af0' });
 
-    if (expenses.length === 0) { alert(t('js_no_exp_period')); return; }
+    if (expenses.length === 0) { setButtonLoading(btn, false); alert(t('js_no_exp_period')); return; }
 
-    expenses.sort((a, b) => a.date.localeCompare(b.date));
+    // --- Build Matrix: Category × Day ---
+    const fromDate = new Date(from + 'T00:00:00');
+    const toDate = new Date(to + 'T00:00:00');
+    const daysInRange = [];
+    for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
+        daysInRange.push(new Date(d));
+    }
 
-    const data = expenses.map(e => {
-        // Verify category exists or fallback
-        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') };
-        return {
-            'Data': e.date,
-            'Categoria': cat.name,
-            'Tipo': e.isGroupExpense ? t('js_group_badge') : 'Pessoal',
-            'Recorrente': e.isRecurring ? (t('rec_' + e.recurringType) || 'Sim') : 'Não',
-            'Descrição': e.description,
-            'Valor': e.amount.toFixed(2)
-        };
+    // Collect all category names present in expenses
+    const catNames = new Set();
+    expenses.forEach(e => {
+        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+        catNames.add(cat.name);
+    });
+    const categoryList = [...catNames].sort();
+
+    // Build matrix[catName][dateStr] = sumAmount
+    const matrix = {};
+    categoryList.forEach(cn => matrix[cn] = {});
+    expenses.forEach(e => {
+        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+        const dateStr = e.date;
+        if (!matrix[cat.name][dateStr]) matrix[cat.name][dateStr] = 0;
+        matrix[cat.name][dateStr] += e.amount;
     });
 
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-    data.push({});
-    data.push({ 'Data': '', 'Descrição': 'TOTAL', 'Categoria': '', 'Valor (€)': total, 'Recorrente': '' });
+    // Day-of-week abbreviations
+    const dowNames = [t('day_sun') || 'Dom', t('day_mon') || 'Seg', t('day_tue') || 'Ter', t('day_wed') || 'Qua', t('day_thu') || 'Qui', t('day_fri') || 'Sex', t('day_sat') || 'Sáb'];
 
+    // Get month label
+    const monthNames = getMonthNames();
+    const monthLabel = `${monthNames[fromDate.getMonth()]}/${fromDate.getFullYear()}`;
+
+    // --- Build sheet as array of arrays ---
+    const sheetData = [];
+
+    // Row 1: day-of-week header
+    const dowRow = ['', ''];
+    daysInRange.forEach(d => dowRow.push(dowNames[d.getDay()]));
+    dowRow.push('');
+    sheetData.push(dowRow);
+
+    // Row 2: month label + date headers
+    const dateRow = ['', monthLabel];
+    daysInRange.forEach(d => {
+        const day = d.getDate();
+        const mon = d.toLocaleString('pt', { month: 'short' }).replace('.', '');
+        dateRow.push(`${day}-${mon}`);
+    });
+    dateRow.push('Total');
+    sheetData.push(dateRow);
+
+    // Data rows: one per category
+    const colTotals = new Array(daysInRange.length).fill(0);
+    let grandTotal = 0;
+
+    categoryList.forEach(catName => {
+        const row = ['', catName];
+        let rowTotal = 0;
+        daysInRange.forEach((d, i) => {
+            const dateStr = d.toISOString().slice(0, 10);
+            const val = matrix[catName][dateStr] || 0;
+            row.push(val > 0 ? val : '');
+            rowTotal += val;
+            colTotals[i] += val;
+        });
+        row.push(rowTotal > 0 ? rowTotal : 0);
+        grandTotal += rowTotal;
+        sheetData.push(row);
+    });
+
+    // Empty rows for padding (to match the Excel model with ~30 rows)
+    const paddingRows = Math.max(0, 30 - categoryList.length);
+    for (let i = 0; i < paddingRows; i++) {
+        const emptyRow = ['', ''];
+        daysInRange.forEach(() => emptyRow.push(''));
+        emptyRow.push(0);
+        sheetData.push(emptyRow);
+    }
+
+    // Totals row
+    const totalRow = ['', 'TOTAL'];
+    colTotals.forEach(ct => totalRow.push(ct > 0 ? ct : ''));
+    totalRow.push(grandTotal);
+    sheetData.push(totalRow);
+
+    // --- Build Summary sheet ---
+    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     const summary = [];
     const byCat = {};
     expenses.forEach(e => {
-        const cat = categoriesCache.find(c => c.id === e.categoryId) || { name: 'Outros' };
+        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: 'Outros' };
         if (!byCat[cat.name]) byCat[cat.name] = 0;
         byCat[cat.name] += e.amount;
     });
     Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([name, amount]) => {
-        summary.push({ 'Categoria': name, 'Total (€)': amount, 'Percentagem': `${((amount / total) * 100).toFixed(1)}%` });
+        summary.push({ 'Categoria': name, 'Total (€)': parseFloat(amount.toFixed(2)), 'Percentagem': `${((amount / total) * 100).toFixed(1)}%` });
     });
 
+    // --- Create workbook ---
     const wb = XLSX.utils.book_new();
-    const ws1 = XLSX.utils.json_to_sheet(data);
+    const ws1 = XLSX.utils.aoa_to_sheet(sheetData);
     const ws2 = XLSX.utils.json_to_sheet(summary);
-    ws1['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }];
-    ws2['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, ws1, 'Despesas');
+
+    // Set column widths
+    const colWidths = [{ wch: 2 }, { wch: 22 }];
+    daysInRange.forEach(() => colWidths.push({ wch: 8 }));
+    colWidths.push({ wch: 10 });
+    ws1['!cols'] = colWidths;
+    ws2['!cols'] = [{ wch: 22 }, { wch: 12 }, { wch: 12 }];
+
+    XLSX.utils.book_append_sheet(wb, ws1, monthLabel);
     XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+
+    setButtonLoading(btn, false);
 
     // Mobile-compatible download using Blob
     const filename = `despesas_${from}_${to}.xlsx`;
@@ -927,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         navigateTo('account');
     });
 
-    // Create Group
+    // Create Group (Custom Modal)
     document.getElementById('add-group-btn').addEventListener('click', async () => {
         if (!currentUser?.is_pro) {
             const { count } = await supabaseClient.from('group_members').select('*', { count: 'exact', head: true }).eq('user_id', currentUser.id);
@@ -937,8 +1242,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        const name = prompt(t('js_new_group_prompt'));
+        // Show custom modal instead of prompt()
+        const modal = document.getElementById('create-group-modal');
+        const input = document.getElementById('create-group-name-input');
+        input.value = '';
+        modal.classList.remove('hidden');
+        setTimeout(() => input.focus(), 100);
+    });
+
+    // Create Group Confirm
+    document.getElementById('create-group-confirm-btn').addEventListener('click', async () => {
+        const name = document.getElementById('create-group-name-input').value.trim();
         if (!name || !currentUser) return;
+
+        const btn = document.getElementById('create-group-confirm-btn');
+        setButtonLoading(btn, true, t('btn_create'));
 
         const { data: group, error } = await supabaseClient
             .from('groups')
@@ -946,12 +1264,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             .select()
             .single();
 
+        setButtonLoading(btn, false);
+
         if (!error && group) {
-            // Add self to members
             await supabaseClient.from('group_members').insert({ group_id: group.id, user_id: currentUser.id });
+            document.getElementById('create-group-modal').classList.add('hidden');
             renderGroupsScreen();
         } else {
             alert(t('js_err_create_group'));
+        }
+    });
+
+    // Enter key on modal input
+    document.getElementById('create-group-name-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('create-group-confirm-btn').click();
         }
     });
 
@@ -1100,9 +1428,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Open Add Group Expense
-    document.getElementById('group-fab-add').addEventListener('click', () => {
+    // Open Add Group Expense (with Free-tier limit check)
+    document.getElementById('group-fab-add').addEventListener('click', async () => {
         if (!currentGroup) return;
+
+        // Free-tier: max 5 group expenses per month
+        if (!currentUser?.is_pro) {
+            const now = new Date();
+            const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
+
+            const { count } = await supabaseClient
+                .from('group_expenses')
+                .select('*', { count: 'exact', head: true })
+                .eq('paid_by', currentUser.id)
+                .gte('date', monthStart)
+                .lte('date', monthEnd);
+
+            if (count >= 5) {
+                alert(t('js_free_expense_limit') || `Atingiste o limite de 5 despesas de grupo por m\u00eas no plano gratuito.`);
+                showPaywall();
+                return;
+            }
+        }
+
         document.getElementById('group-expense-form').reset();
         document.getElementById('group-expense-date').value = new Date().toISOString().slice(0, 10);
 
@@ -1796,6 +2146,34 @@ async function fetchGroupExpensesForMonth(year, month) {
     }));
 }
 
+async function fetchGroupExpensesForRange(from, to) {
+    if (!currentUser) return [];
+
+    const { data: expenses, error } = await supabaseClient
+        .from('group_expenses')
+        .select(`
+            id,
+            description,
+            date,
+            groups ( name ),
+            expense_splits!inner ( user_id, amount )
+        `)
+        .eq('expense_splits.user_id', currentUser.id)
+        .gte('date', from)
+        .lte('date', to);
+
+    if (error || !expenses) return [];
+
+    return expenses.map(e => ({
+        id: e.id,
+        description: `${e.groups.name} - ${e.description}`,
+        amount: e.expense_splits[0].amount,
+        date: e.date,
+        categoryId: 'group_expense',
+        isGroupExpense: true
+    }));
+}
+
 // ============================================
 // PUSH NOTIFICATIONS SETUP
 // ============================================
@@ -1849,3 +2227,218 @@ function urlBase64ToUint8Array(base64String) {
     }
     return outputArray;
 }
+
+// ============================================
+// PWA INSTALL PROMPT
+// ============================================
+
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+
+    // Don't show if user dismissed before
+    if (localStorage.getItem('pwa-install-dismissed')) return;
+    // Don't show if already installed (standalone mode)
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.classList.remove('hidden');
+});
+
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+        document.getElementById('pwa-install-banner')?.classList.add('hidden');
+    }
+    deferredInstallPrompt = null;
+});
+
+document.getElementById('pwa-dismiss-btn')?.addEventListener('click', () => {
+    document.getElementById('pwa-install-banner')?.classList.add('hidden');
+    localStorage.setItem('pwa-install-dismissed', 'true');
+});
+
+window.addEventListener('appinstalled', () => {
+    document.getElementById('pwa-install-banner')?.classList.add('hidden');
+    deferredInstallPrompt = null;
+});
+
+// ============================================
+// EXPENSE SEARCH
+// ============================================
+
+function setupSearch() {
+    const toggleBtn = document.getElementById('search-toggle-btn');
+    const searchBar = document.getElementById('search-bar');
+    const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('search-clear-btn');
+    const resultsContainer = document.getElementById('search-results');
+
+    if (!toggleBtn || !searchBar) return;
+
+    // Toggle search bar
+    toggleBtn.addEventListener('click', () => {
+        searchBar.classList.toggle('hidden');
+        if (!searchBar.classList.contains('hidden')) {
+            searchInput.focus();
+        } else {
+            searchInput.value = '';
+            resultsContainer.classList.add('hidden');
+            clearBtn.classList.add('hidden');
+        }
+    });
+
+    // Clear button
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        resultsContainer.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+        searchInput.focus();
+    });
+
+    // Live search (debounced)
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const query = searchInput.value.trim().toLowerCase();
+
+        if (query.length === 0) {
+            resultsContainer.classList.add('hidden');
+            clearBtn.classList.add('hidden');
+            return;
+        }
+        clearBtn.classList.remove('hidden');
+
+        searchTimeout = setTimeout(async () => {
+            const allExpenses = await db.getAllExpenses();
+            const cats = await db.getAllCategories();
+
+            const results = allExpenses.filter(e => {
+                const cat = cats.find(c => c.id === e.categoryId);
+                const catName = cat ? cat.name.toLowerCase() : '';
+                return e.description.toLowerCase().includes(query) || catName.includes(query);
+            }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 15);
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:13px;">${t('search_no_results') || 'Sem resultados'}</div>`;
+            } else {
+                resultsContainer.innerHTML = results.map(e => {
+                    const cat = cats.find(c => c.id === e.categoryId) || { icon: '💰', name: t('js_others'), color: '#666' };
+                    return `<div class="search-result-item" data-date="${e.date}" style="display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                        <div style="width:32px; height:32px; border-radius:50%; background:${cat.color}22; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${cat.icon}</div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.description}</div>
+                            <div style="font-size:11px; color:var(--text-muted);">${cat.name} · ${e.date}</div>
+                        </div>
+                        <div style="font-weight:700; color:var(--accent); font-size:14px; white-space:nowrap;">${formatCurrency(e.amount)}</div>
+                    </div>`;
+                }).join('');
+            }
+
+            resultsContainer.classList.remove('hidden');
+
+            // Click on result → go to that day
+            resultsContainer.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const date = item.dataset.date;
+                    if (date) {
+                        const [y, m] = date.split('-').map(Number);
+                        currentYear = y;
+                        currentMonth = m - 1;
+                        selectedDayDate = date;
+                        renderCalendar();
+                        // Close search
+                        searchBar.classList.add('hidden');
+                        searchInput.value = '';
+                        resultsContainer.classList.add('hidden');
+                        clearBtn.classList.add('hidden');
+                    }
+                });
+            });
+        }, 300);
+    });
+
+    // Close results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchBar.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+            resultsContainer.classList.add('hidden');
+        }
+    });
+}
+
+// ============================================
+// ONBOARDING TUTORIAL
+// ============================================
+
+(function setupOnboarding() {
+    if (localStorage.getItem('onboarding-done')) return;
+
+    const slides = [
+        {
+            emoji: '📅',
+            title: t('onboarding_1_title') || 'Calendário',
+            desc: t('onboarding_1_desc') || 'Vê as tuas despesas organizadas por dia. Toca num dia para ver detalhes ou adiciona novas despesas com o botão +.'
+        },
+        {
+            emoji: '🏷️',
+            title: t('onboarding_2_title') || 'Categorias',
+            desc: t('onboarding_2_desc') || 'Organiza as tuas despesas por categorias personalizadas. Define orçamentos mensais para controlar os gastos.'
+        },
+        {
+            emoji: '👥',
+            title: t('onboarding_3_title') || 'Grupos',
+            desc: t('onboarding_3_desc') || 'Partilha despesas com amigos e família. Divide contas automaticamente e vê quem deve o quê.'
+        }
+    ];
+
+    let currentSlide = 0;
+    const overlay = document.getElementById('onboarding-overlay');
+    if (!overlay) return;
+
+    function showSlide(index) {
+        document.getElementById('onboarding-emoji').textContent = slides[index].emoji;
+        document.getElementById('onboarding-title').textContent = slides[index].title;
+        document.getElementById('onboarding-desc').textContent = slides[index].desc;
+
+        // Update dots
+        document.querySelectorAll('.onboarding-dot').forEach((dot, i) => {
+            dot.style.background = i === index ? 'var(--accent)' : 'rgba(255,255,255,0.3)';
+            dot.style.width = i === index ? '20px' : '8px';
+            dot.style.borderRadius = i === index ? '4px' : '50%';
+        });
+
+        // Update button text
+        const nextBtn = document.getElementById('onboarding-next-btn');
+        if (index === slides.length - 1) {
+            nextBtn.textContent = t('btn_start') || 'Começar! 🚀';
+        } else {
+            nextBtn.textContent = t('btn_next') || 'Seguinte';
+        }
+    }
+
+    function closeOnboarding() {
+        overlay.classList.add('hidden');
+        localStorage.setItem('onboarding-done', 'true');
+    }
+
+    document.getElementById('onboarding-next-btn')?.addEventListener('click', () => {
+        currentSlide++;
+        if (currentSlide >= slides.length) {
+            closeOnboarding();
+        } else {
+            showSlide(currentSlide);
+        }
+    });
+
+    document.getElementById('onboarding-skip-btn')?.addEventListener('click', closeOnboarding);
+
+    // Show onboarding after a short delay
+    setTimeout(() => {
+        overlay.classList.remove('hidden');
+        showSlide(0);
+    }, 800);
+})();
