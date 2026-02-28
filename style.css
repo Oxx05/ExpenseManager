@@ -587,6 +587,12 @@ select:hover:not(:disabled),
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
 }
 
 .btn-small {
@@ -599,6 +605,15 @@ select:hover:not(:disabled),
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-small:hover {
+    filter: brightness(1.1);
+}
+
+.btn-small:active {
+    transform: scale(0.98);
 }
 
 .form-actions {
@@ -1162,5 +1177,29 @@ select:hover:not(:disabled),
     .bottom-nav {
         padding-bottom: env(safe-area-inset-bottom);
         height: calc(var(--nav-height) + env(safe-area-inset-bottom));
+    }
+}
+
+/* --- Loader Utils --- */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.8 !important;
+}
+
+.btn-loading-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.spin-anim {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
     }
 }

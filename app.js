@@ -40,6 +40,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateExportDates();
 });
 
+// --- UI Utils ---
+window.setButtonLoading = function (btn, isLoading, loadingText = '') {
+    if (!btn) return;
+    if (isLoading) {
+        btn.disabled = true;
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="btn-loading-content"><i class="fas fa-spinner spin-anim"></i> ${loadingText || ''}</span>`;
+        btn.classList.add('btn-loading');
+    } else {
+        btn.disabled = false;
+        if (btn.dataset.originalHtml) {
+            btn.innerHTML = btn.dataset.originalHtml;
+        }
+        btn.classList.remove('btn-loading');
+    }
+};
+
 // ============================================
 // NAVIGATION
 // ============================================
@@ -460,6 +477,9 @@ async function saveExpense(e) {
         }
     }
 
+    const btn = document.getElementById('expense-form').querySelector('button[type="submit"]');
+    setButtonLoading(btn, true, t('js_btn_save') || 'Guardar');
+
     if (id) {
         expense.id = parseInt(id);
         // Keep parentId if editing a child
@@ -470,6 +490,7 @@ async function saveExpense(e) {
     }
 
     if (isRecurring) await db.processRecurring();
+    setButtonLoading(btn, false);
     navigateTo('calendar');
 }
 
@@ -940,16 +961,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!email || !currentGroup) return;
 
         const btn = document.getElementById('invite-btn');
-        btn.disabled = true;
-        btn.textContent = t('js_sending_link');
+        setButtonLoading(btn, true, t('js_sending_link'));
 
         const { data, error } = await supabaseClient.rpc('invite_user_to_group', {
             p_group_id: currentGroup.id,
             p_email: email
         });
 
-        btn.disabled = false;
-        btn.textContent = t('btn_invite');
+        setButtonLoading(btn, false);
 
         if (error) {
             alert(t('js_error') + " " + error.message);
@@ -990,21 +1009,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!confirm(t('js_confirm_archive_group'))) return;
 
         const btn = document.getElementById('archive-group-btn');
-        btn.disabled = true;
+        setButtonLoading(btn, true, t('btn_archive_group'));
 
         const { error } = await supabaseClient.rpc('archive_group', {
             p_group_id: currentGroup.id
         });
 
-        btn.disabled = false;
+        setButtonLoading(btn, false);
 
         if (error) {
             alert(t('js_error') + " " + error.message);
             return;
         }
 
-        navigateGroupBack();
-        renderGroupsScreen();
+        currentGroup.isArchived = true;
+        loadGroupDetail(currentGroup.id);
+        renderGroupsScreen(); // Update the list in the background
     });
 
     // Unarchive Group
@@ -1013,13 +1033,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!confirm(t('js_confirm_unarchive_group'))) return;
 
         const btn = document.getElementById('unarchive-group-btn');
-        btn.disabled = true;
+        setButtonLoading(btn, true, t('btn_unarchive_group'));
 
         const { data, error } = await supabaseClient.rpc('unarchive_group', {
             p_group_id: currentGroup.id
         });
 
-        btn.disabled = false;
+        setButtonLoading(btn, false);
 
         if (error) {
             alert(t('js_error') + " " + error.message);
@@ -1027,8 +1047,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (data.success) {
-            navigateGroupBack();
-            renderGroupsScreen();
+            currentGroup.isArchived = false;
+            loadGroupDetail(currentGroup.id);
+            renderGroupsScreen(); // Update the list in the background
         } else if (data.error_code === 'LIMIT_REACHED') {
             alert(t('js_err_unarchive_limit'));
             showPaywall();
@@ -1041,13 +1062,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!confirm(t('js_confirm_leave_group'))) return;
 
         const btn = document.getElementById('leave-group-btn');
-        btn.disabled = true;
+        setButtonLoading(btn, true, t('btn_leave_group'));
 
         const { data, error } = await supabaseClient.rpc('leave_group', {
             p_group_id: currentGroup.id
         });
 
-        btn.disabled = false;
+        setButtonLoading(btn, false);
 
         if (error) {
             alert(t('js_error') + " " + error.message);
@@ -1278,6 +1299,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             return alert(`A soma das divisões (${sumSplits.toFixed(2)} €) não corresponde ao total exato da fatura (${total.toFixed(2)} €). Por favor, ajusta os valores.`);
         }
 
+        const btn = document.getElementById('group-expense-form').querySelector('button[type="submit"]');
+        setButtonLoading(btn, true, t('js_btn_save') || 'Guardar');
+
         const { error } = await supabaseClient.rpc('add_group_expense', {
             p_group_id: currentGroup.id,
             p_paid_by: paidBy,
@@ -1287,6 +1311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             p_splits: splits
         });
 
+        setButtonLoading(btn, false);
         if (error) {
             console.error(error);
             alert(`${t('js_err_save')} ` + error.message);
@@ -1382,9 +1407,7 @@ function updateAuthUI() {
             newForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('profile-save-btn');
-                const oldText = btn.textContent;
-                btn.textContent = "...";
-                btn.disabled = true;
+                setButtonLoading(btn, true, t('js_saving_profile') || 'A guardar...');
 
                 const nameVal = document.getElementById('profile-name').value;
                 const phoneVal = document.getElementById('profile-phone').value;
@@ -1393,6 +1416,8 @@ function updateAuthUI() {
                     name: nameVal,
                     phone: phoneVal
                 }).eq('id', currentUser.id);
+
+                setButtonLoading(btn, false);
 
                 if (error) {
                     alert(`${t('js_err_save')} ${error.message}`);
@@ -1606,7 +1631,7 @@ async function loadGroupDetail(groupId) {
                 htmlClass = 'negative';
                 textHtml = `${t('js_you_owe')} <strong>${creditorName}</strong>`;
                 if (!currentGroup.isArchived) {
-                    btnHtml = `<button onclick="settleDebt('${d.debtor_id}','${d.creditor_id}',${d.amount})" class="btn-small" style="background:var(--accent);">${t('js_btn_pay')}</button>`;
+                    btnHtml = `<button onclick="settleDebt(this, '${d.debtor_id}','${d.creditor_id}',${d.amount})" class="btn-small" style="background:var(--accent);">${t('js_btn_pay')}</button>`;
                 }
             } else {
                 textHtml = `<strong>${debtorName}</strong> ${t('js_owes')} ${creditorName}`;
@@ -1657,7 +1682,7 @@ async function loadGroupDetail(groupId) {
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
-                        ${(e.paid_by === currentUser.id && !currentGroup.isArchived) ? `<button onclick="deleteGroupExpense('${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
+                        ${(e.paid_by === currentUser.id && !currentGroup.isArchived) ? `<button onclick="deleteGroupExpense(this, '${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
                     </div>
                 </div>
             `;
@@ -1706,30 +1731,34 @@ async function loadGroupDetail(groupId) {
     }
 }
 
-window.deleteGroupExpense = async function (expenseId) {
+window.deleteGroupExpense = async function (btn, expenseId) {
     if (confirm(t('js_confirm_delete'))) {
+        setButtonLoading(btn, true);
         const { error } = await supabaseClient.rpc('delete_group_expense', {
             p_group_id: currentGroup.id,
             p_expense_id: expenseId
         });
+        setButtonLoading(btn, false);
         if (error) alert("Erro ao apagar despesa de grupo: " + error.message);
         else loadGroupDetail(currentGroup.id);
     }
 }
 
-window.settleDebt = async function (debtor_id, creditor_id, amount) {
+window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
     if (currentGroup?.isArchived) {
         alert(t('js_error') + " Grupo Arquivado (Apenas Leitura).");
         return;
     }
 
     if (confirm(`${t('js_confirm_settle_debt')} ${amount.toFixed(2)} €?`)) {
+        setButtonLoading(btn, true);
         const { error } = await supabaseClient.rpc('settle_debt', {
             p_group_id: currentGroup.id,
             p_debtor_id: debtor_id,
             p_creditor_id: creditor_id,
             p_amount: amount
         });
+        setButtonLoading(btn, false);
         if (error) alert(`${t('js_err_settle')}` + error.message);
         else loadGroupDetail(currentGroup.id);
     }
