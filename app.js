@@ -1001,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ${m.profiles.name || m.profiles.email}
                     </label>
                     <div style="display:flex; align-items:center; gap:5px;">
+                        <i class="fas fa-lock-open split-lock-icon" data-id="${m.profiles.id}" style="color:var(--text-dim); cursor:pointer; font-size:14px; margin-right:5px; width:16px; text-align:center;"></i>
                         <input type="number" step="0.01" min="0" class="split-amount-input" data-id="${m.profiles.id}" style="width:80px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); text-align:right; font-size:14px;">
                         <span style="color:var(--text-dim); font-size:14px;">€</span>
                     </div>
@@ -1014,67 +1015,133 @@ document.addEventListener('DOMContentLoaded', async () => {
         const calcSplits = (e) => {
             const total = parseFloat(document.getElementById('group-expense-amount').value) || 0;
             const checkedBoxes = Array.from(document.querySelectorAll('.split-checkbox:checked'));
-            const inputs = document.querySelectorAll('.split-amount-input');
+            const allInputs = document.querySelectorAll('.split-amount-input');
+            const allLocks = document.querySelectorAll('.split-lock-icon');
 
-            // If the user manually edited an input, "lock" it
+            // 1. Handle Checkbox uncheck
+            if (e && e.target && e.target.classList.contains('split-checkbox')) {
+                const id = e.target.value;
+                if (!e.target.checked) {
+                    delete manualSplits[id];
+                    document.querySelector(`.split-amount-input[data-id="${id}"]`).value = '';
+                    const lockIcon = document.querySelector(`.split-lock-icon[data-id="${id}"]`);
+                    lockIcon.className = 'fas fa-lock-open split-lock-icon';
+                    lockIcon.style.color = 'var(--text-dim)';
+                }
+            }
+
+            // 2. Handle Lock Icon Click
+            if (e && e.target && e.target.classList.contains('split-lock-icon')) {
+                const id = e.target.dataset.id;
+                const checkbox = document.querySelector(`.split-checkbox[value="${id}"]`);
+                // Only allow locking/unlocking if the user is included in the split
+                if (checkbox && checkbox.checked) {
+                    if (manualSplits[id]) {
+                        // Unlock
+                        delete manualSplits[id];
+                        e.target.className = 'fas fa-lock-open split-lock-icon';
+                        e.target.style.color = 'var(--text-dim)';
+                    } else {
+                        // Lock
+                        manualSplits[id] = true;
+                        e.target.className = 'fas fa-lock split-lock-icon';
+                        e.target.style.color = 'var(--accent)';
+                    }
+                }
+            }
+
+            // 3. Handle Manual Input Edit
             if (e && e.target && e.target.classList.contains('split-amount-input')) {
                 const id = e.target.dataset.id;
-                if (e.target.value === '') {
-                    delete manualSplits[id];
-                } else {
-                    manualSplits[id] = parseFloat(e.target.value) || 0;
+                // If user types something, auto-lock it!
+                if (e.target.value !== '') {
+                    manualSplits[id] = true;
+                    const lockIcon = document.querySelector(`.split-lock-icon[data-id="${id}"]`);
+                    lockIcon.className = 'fas fa-lock split-lock-icon';
+                    lockIcon.style.color = 'var(--accent)';
                 }
             }
 
-            // If a checkbox is toggled off, unlock its manual split
-            if (e && e.target && e.target.classList.contains('split-checkbox')) {
-                if (!e.target.checked) {
-                    delete manualSplits[e.target.value];
-                    document.querySelector(`.split-amount-input[data-id="${e.target.value}"]`).value = '';
-                }
-            }
-
-            // Calculate auto splits
-            let remainingTotal = total;
-            let autoCount = 0;
+            // --- Calculation phase ---
+            let lockedSum = 0;
+            let unlockedBoxes = [];
 
             checkedBoxes.forEach(cb => {
                 const id = cb.value;
-                if (manualSplits.hasOwnProperty(id)) {
-                    remainingTotal -= manualSplits[id];
+                if (manualSplits[id]) {
+                    const inputVal = parseFloat(document.querySelector(`.split-amount-input[data-id="${id}"]`).value) || 0;
+                    lockedSum += inputVal;
                 } else {
-                    autoCount++;
+                    unlockedBoxes.push(cb);
                 }
             });
 
-            const autoSplitVal = autoCount > 0 ? Math.max(0, remainingTotal / autoCount) : 0;
+            const remainingToDistribute = Math.max(0, total - lockedSum);
+            const autoAmount = unlockedBoxes.length > 0 ? remainingToDistribute / unlockedBoxes.length : 0;
 
-            // Update inputs visually
-            inputs.forEach(input => {
+            // Apply values and UI states
+            allInputs.forEach(input => {
                 const id = input.dataset.id;
                 const checkbox = document.querySelector(`.split-checkbox[value="${id}"]`);
+                const lockIcon = document.querySelector(`.split-lock-icon[data-id="${id}"]`);
 
                 if (!checkbox.checked) {
                     input.value = '';
+                    input.readOnly = false;
                     input.disabled = true;
                     input.style.opacity = '0.4';
+                    lockIcon.style.opacity = '0.4';
+                    lockIcon.style.pointerEvents = 'none';
                 } else {
-                    input.disabled = false;
                     input.style.opacity = '1';
-                    if (!manualSplits.hasOwnProperty(id)) {
-                        input.value = autoSplitVal.toFixed(2);
+                    lockIcon.style.opacity = '1';
+
+                    if (manualSplits[id]) {
+                        input.disabled = false;
+                        input.readOnly = false;
+                        lockIcon.style.pointerEvents = 'auto'; // allow unlocking
+                    } else {
+                        // Unlocked: fill with math
+                        input.value = autoAmount.toFixed(2);
+
+                        // MBWay Logic: If this is the LAST unlocked box, it absorbs the remainder 
+                        // and CANNOT be edited (otherwise the math breaks against the Total fixo).
+                        if (unlockedBoxes.length === 1) {
+                            input.readOnly = true;
+                            input.disabled = false;
+                            input.style.opacity = '0.7'; // Indicate it's computed and locked
+                            lockIcon.style.pointerEvents = 'none'; // Cannot manually lock the last derived value
+                        } else {
+                            input.readOnly = false;
+                            input.disabled = false;
+                            lockIcon.style.pointerEvents = 'auto';
+                        }
                     }
                 }
             });
+
+            // Ensure cents add up perfectly for unlocked boxes (rounding fixes)
+            if (unlockedBoxes.length > 0) {
+                let distributedSoFar = 0;
+                for (let i = 0; i < unlockedBoxes.length - 1; i++) {
+                    const id = unlockedBoxes[i].value;
+                    const roundedVal = parseFloat(autoAmount.toFixed(2));
+                    document.querySelector(`.split-amount-input[data-id="${id}"]`).value = roundedVal.toFixed(2);
+                    distributedSoFar += roundedVal;
+                }
+                // Last box absorbs the absolute difference
+                const lastUnlockedId = unlockedBoxes[unlockedBoxes.length - 1].value;
+                const exactRemainder = Math.max(0, remainingToDistribute - distributedSoFar);
+                document.querySelector(`.split-amount-input[data-id="${lastUnlockedId}"]`).value = exactRemainder.toFixed(2);
+            }
         };
 
-        document.getElementById('group-expense-amount').addEventListener('input', (e) => {
-            // If the total amount changes, we reset manual splits to keep it simple, or we keep them.
-            // Keeping them might result in negative remaining total, so let's keep them and let it cap at 0
-            calcSplits(e);
-        });
+        // Listeners for calc updates
+        document.getElementById('group-expense-amount').addEventListener('input', (e) => calcSplits(e));
         document.querySelectorAll('.split-checkbox').forEach(cb => cb.addEventListener('change', calcSplits));
         document.querySelectorAll('.split-amount-input').forEach(inp => inp.addEventListener('input', calcSplits));
+        // We use querySelectorAll here because it's called exactly once when opening the modal, after dynamic injection.
+        document.querySelectorAll('.split-lock-icon').forEach(icon => icon.addEventListener('click', calcSplits));
 
         navigateTo('add-group-expense');
     });
