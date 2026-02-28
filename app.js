@@ -983,13 +983,31 @@ async function exportExcel() {
 
     if (expenses.length === 0) { setButtonLoading(btn, false); alert(t('js_no_exp_period')); return; }
 
-    // --- Build Matrix: Category × Day ---
-    const fromDate = new Date(from + 'T00:00:00');
-    const toDate = new Date(to + 'T00:00:00');
-    const daysInRange = [];
-    for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + 1)) {
-        daysInRange.push(new Date(d));
+    // --- Build Matrix for Academic Year (Sept - Aug) ---
+    // Calculate which academic year this export belongs to based on the 'from' date
+    const fromDateObj = new Date(from);
+    let acadYearStart = fromDateObj.getFullYear();
+    if (fromDateObj.getMonth() < 8) { // If before Sept, it belongs to the previous academic year
+        acadYearStart--;
     }
+    const acadYearEnd = acadYearStart + 1;
+    const acadYearLabel = `${String(acadYearStart).slice(-2)}/${String(acadYearEnd).slice(-2)}`;
+
+    // Define the columns (Months from Sept to Aug)
+    const monthsOrder = [
+        { d: '09', name: 'Set', label: '45170' }, // Just labels to match template structure visually
+        { d: '10', name: 'Out', label: '45200' },
+        { d: '11', name: 'Nov', label: '45231' },
+        { d: '12', name: 'Dez', label: '45261' },
+        { d: '01', name: 'Jan', label: '45292' },
+        { d: '02', name: 'Fev', label: '45323' },
+        { d: '03', name: 'Mar', label: '45352' },
+        { d: '04', name: 'Abr', label: '45383' },
+        { d: '05', name: 'Mai', label: '45413' },
+        { d: '06', name: 'Jun', label: '45444' },
+        { d: '07', name: 'Jul', label: '45474' },
+        { d: '08', name: 'Ago', label: '45505' }
+    ];
 
     // Collect all category names present in expenses
     const catNames = new Set();
@@ -999,103 +1017,81 @@ async function exportExcel() {
     });
     const categoryList = [...catNames].sort();
 
-    // Build matrix[catName][dateStr] = sumAmount
+    // Build matrix[catName][monthKey] = sumAmount
     const matrix = {};
     categoryList.forEach(cn => matrix[cn] = {});
     expenses.forEach(e => {
         const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-        const dateStr = e.date;
-        if (!matrix[cat.name][dateStr]) matrix[cat.name][dateStr] = 0;
-        matrix[cat.name][dateStr] += e.amount;
+        // Extract month block from date (YYYY-MM-DD -> MM)
+        const monthKey = e.date.split('-')[1];
+        if (!matrix[cat.name][monthKey]) matrix[cat.name][monthKey] = 0;
+        matrix[cat.name][monthKey] += e.amount;
     });
 
-    // Day-of-week abbreviations
-    const dowNames = [t('day_sun') || 'Dom', t('day_mon') || 'Seg', t('day_tue') || 'Ter', t('day_wed') || 'Qua', t('day_thu') || 'Qui', t('day_fri') || 'Sex', t('day_sat') || 'Sáb'];
-
-    // Get month label
-    const monthNames = getMonthNames();
-    const monthLabel = `${monthNames[fromDate.getMonth()]} ${fromDate.getFullYear()}`;
-
-    // --- Build sheet as array of arrays ---
+    // --- Build sheet as array of arrays (Matching Template Layout) ---
     const sheetData = [];
 
-    // Row 1: day-of-week header
-    const dowRow = ['', ''];
-    daysInRange.forEach(d => dowRow.push(dowNames[d.getDay()]));
-    dowRow.push('');
-    sheetData.push(dowRow);
+    // Empty Row 1 & 2
+    sheetData.push([]);
+    sheetData.push([]);
 
-    // Row 2: month label + date headers
-    const dateRow = ['', monthLabel];
-    daysInRange.forEach(d => {
-        const day = d.getDate();
-        const mon = d.toLocaleString('pt', { month: 'short' }).replace('.', '');
-        dateRow.push(`${day}-${mon}`);
-    });
-    dateRow.push('Total');
-    sheetData.push(dateRow);
+    // Header Row 3
+    const row3 = ['', '', '', acadYearLabel];
+    monthsOrder.forEach(m => row3.push(m.name));
+    sheetData.push(row3);
 
     // Data rows: one per category
-    const colTotals = new Array(daysInRange.length).fill(0);
+    const colTotals = new Array(12).fill(0);
     let grandTotal = 0;
 
     categoryList.forEach(catName => {
-        const row = ['', catName];
+        const row = ['', catName, '']; // A: empty, B: Category, C: empty (would be expected budget)
         let rowTotal = 0;
-        daysInRange.forEach((d, i) => {
-            const dateStr = d.toISOString().slice(0, 10);
-            const val = matrix[catName][dateStr] || 0;
-            row.push(val > 0 ? val : '');
+
+        // Push actual expected budget if it exists in DB, otherwise empty
+        const catObj = categoriesCache.find(c => c.name === catName);
+        row.push(catObj && catObj.budget ? catObj.budget : ''); // D: Expected Budget
+
+        monthsOrder.forEach((m, i) => {
+            const val = matrix[catName][m.d] || 0;
+            row.push(val > 0 ? parseFloat(val.toFixed(2)) : '');
             rowTotal += val;
             colTotals[i] += val;
         });
-        row.push(rowTotal > 0 ? rowTotal : 0);
         grandTotal += rowTotal;
         sheetData.push(row);
     });
 
-    // Empty rows for padding (to match the Excel model with ~30 rows)
-    const paddingRows = Math.max(0, 30 - categoryList.length);
+    // Padding rows to make it look like contiguous table
+    const paddingRows = Math.max(0, 15 - categoryList.length);
     for (let i = 0; i < paddingRows; i++) {
-        const emptyRow = ['', ''];
-        daysInRange.forEach(() => emptyRow.push(''));
-        emptyRow.push(0);
+        const emptyRow = ['', '', '', ''];
+        monthsOrder.forEach(() => emptyRow.push(''));
         sheetData.push(emptyRow);
     }
 
     // Totals row
-    const totalRow = ['', 'TOTAL'];
-    colTotals.forEach(ct => totalRow.push(ct > 0 ? ct : ''));
-    totalRow.push(grandTotal);
+    const totalRow = ['', '', '', 'TOTAL']; // Col C is budget total (omitted for now), Col D is 'TOTAL'
+    colTotals.forEach(ct => totalRow.push(ct > 0 ? parseFloat(ct.toFixed(2)) : ''));
     sheetData.push(totalRow);
 
-    // --- Build Summary sheet ---
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const summary = [];
-    const byCat = {};
-    expenses.forEach(e => {
-        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: 'Outros' };
-        if (!byCat[cat.name]) byCat[cat.name] = 0;
-        byCat[cat.name] += e.amount;
-    });
-    Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([name, amount]) => {
-        summary.push({ 'Categoria': name, 'Total (€)': parseFloat(amount.toFixed(2)), 'Percentagem': `${((amount / total) * 100).toFixed(1)}%` });
-    });
+    // Add extra empty rows at bottom matching template
+    sheetData.push([]);
+    sheetData.push([]);
+    sheetData.push([]);
 
     // --- Create workbook ---
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(sheetData);
-    const ws2 = XLSX.utils.json_to_sheet(summary);
 
-    // Set column widths
-    const colWidths = [{ wch: 2 }, { wch: 22 }];
-    daysInRange.forEach(() => colWidths.push({ wch: 8 }));
-    colWidths.push({ wch: 10 });
+    // Set column widths matching template
+    // A:2, B:22(Cat), C:2(Empty), D:10(Budget), E-P:10(Months)
+    const colWidths = [{ wch: 2 }, { wch: 25 }, { wch: 2 }, { wch: 12 }];
+    monthsOrder.forEach(() => colWidths.push({ wch: 10 }));
     ws1['!cols'] = colWidths;
-    ws2['!cols'] = [{ wch: 22 }, { wch: 12 }, { wch: 12 }];
 
-    XLSX.utils.book_append_sheet(wb, ws1, monthLabel);
-    XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+    const sheetName = `Despesas ${String(acadYearStart).slice(-2)}-${String(acadYearEnd).slice(-2)}`;
+    XLSX.utils.book_append_sheet(wb, ws1, sheetName);
 
     setButtonLoading(btn, false);
 
