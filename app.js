@@ -638,7 +638,8 @@ function setupCategoryForm() {
 
 async function renderCategories() {
     categoriesCache = await db.getAllCategories();
-    const allExpenses = await db.getAllExpenses();
+    // Fetch this month's expenses (including projected recurring ones) to compare against monthly budgets
+    const allExpenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
     const list = document.getElementById('categories-list');
     list.innerHTML = '';
 
