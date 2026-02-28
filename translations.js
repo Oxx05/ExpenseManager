@@ -99,6 +99,7 @@ const translations = {
         "nav_calendar": "Calendário",
         "nav_categories": "Categorias",
         "nav_summary": "Resumo",
+        "nav_groups": "Grupos",
         "nav_account": "Conta",
         // Paywall
         "pro_title": "Desbloqueia o Premium 🌟",
@@ -265,6 +266,7 @@ const translations = {
         "nav_calendar": "Calendar",
         "nav_categories": "Categories",
         "nav_summary": "Summary",
+        "nav_groups": "Groups",
         "nav_account": "Account",
         // Paywall
         "pro_title": "Unlock Premium 🌟",
