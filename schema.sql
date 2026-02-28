@@ -50,7 +50,8 @@ CREATE TABLE public.groups (
   id uuid default gen_random_uuid() primary key,
   name text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  created_by uuid references public.profiles(id) not null
+  created_by uuid references public.profiles(id) not null,
+  is_archived boolean default false
 );
 ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can create groups" ON public.groups FOR INSERT WITH CHECK (auth.uid() = created_by);
@@ -426,5 +427,23 @@ BEGIN
   DELETE FROM public.group_members WHERE group_id = p_group_id AND user_id = auth.uid();
   
   RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- UPDATE TABELA GROUPS PARA SUPORTAR ARQUIVOS (SOFT DELETES)
+-- =========================================================================
+ALTER TABLE public.groups ADD COLUMN IF NOT EXISTS is_archived boolean default false;
+
+-- =========================================================================
+-- FUNÇÃO RPC PARA ARQUIVAR GRUPO
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.archive_group(
+  p_group_id uuid
+) RETURNS boolean AS $$
+BEGIN
+  -- Apenas o criador pode arquivar
+  UPDATE public.groups SET is_archived = true WHERE id = p_group_id AND created_by = auth.uid();
+  RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

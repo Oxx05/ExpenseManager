@@ -157,7 +157,10 @@ const translations = {
         "js_err_invite_member": "Este utilizador já faz parte do grupo.",
         "js_invite_not_found": "Utilizador não encontrado.\nQueres partilhar um convite da App com ele via WhatsApp ou Email?",
         "js_invite_share_title": "Junta-te a mim no Despesas!",
-        "js_invite_share_text": "Criei um grupo partilhado e preciso que entres."
+        "js_invite_share_text": "Criei um grupo partilhado e preciso que entres.",
+        "btn_archive_group": "Arquivar Grupo",
+        "group_archived_banner": "GRUPO ARQUIVADO (Apenas Leitura)",
+        "js_confirm_archive_group": "Tens a certeza que queres arquivar este grupo? Ficará apenas de leitura."
     },
     en: {
         // App
@@ -317,7 +320,10 @@ const translations = {
         "js_err_invite_member": "This user is already part of the group.",
         "js_invite_not_found": "User not found.\nDo you want to share an App invite with them via WhatsApp or Email?",
         "js_invite_share_title": "Join me on Expenses!",
-        "js_invite_share_text": "I created a shared group and need you to join."
+        "js_invite_share_text": "I created a shared group and need you to join.",
+        "btn_archive_group": "Archive Group",
+        "group_archived_banner": "ARCHIVED GROUP (Read-Only)",
+        "js_confirm_archive_group": "Are you sure you want to archive this group? It will become read-only."
     }
 };
 

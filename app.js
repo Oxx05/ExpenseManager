@@ -984,6 +984,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // Archive Group
+    document.getElementById('archive-group-btn').addEventListener('click', async () => {
+        if (!currentGroup) return;
+        if (!confirm(t('js_confirm_archive_group'))) return;
+
+        const btn = document.getElementById('archive-group-btn');
+        btn.disabled = true;
+
+        const { error } = await supabaseClient.rpc('archive_group', {
+            p_group_id: currentGroup.id
+        });
+
+        btn.disabled = false;
+
+        if (error) {
+            alert(t('js_error') + " " + error.message);
+            return;
+        }
+
+        navigateGroupBack();
+        renderGroupsScreen();
+    });
+
     // Leave Group
     document.getElementById('leave-group-btn').addEventListener('click', async () => {
         if (!currentGroup) return;
@@ -1428,7 +1451,7 @@ async function renderGroupsScreen() {
         .select(`
             group_id,
             joined_at,
-            groups ( id, name, created_by )
+            groups ( id, name, created_by, is_archived )
         `)
         .eq('user_id', currentUser.id)
         .order('joined_at', { ascending: true });
@@ -1442,19 +1465,24 @@ async function renderGroupsScreen() {
     members.forEach((m, index) => {
         const g = m.groups;
         const role = g.created_by === currentUser.id ? t('js_creator') : t('js_member');
+        const isArchived = g.is_archived === true;
 
         // Graceful downgrade: Lock extra groups if user loses PRO status
         const isLocked = !currentUser.is_pro && index > 0;
 
         const lockBadge = isLocked ? `<div style="font-size:11px; font-weight:700; background:rgba(229,49,112,0.15); color:var(--danger); padding:4px 8px; border-radius:12px; letter-spacing:0.5px;"><i class="fas fa-lock" style="margin-right:4px;"></i>${t('pro_locked_badge')}</div>` : '';
-        const opacity = isLocked ? 'opacity: 0.5; filter: grayscale(50%);' : '';
-        const clickAction = isLocked ? `showLockedGroupAlert()` : `openGroupDetail('${g.id}', '${g.name}')`;
+        const archivedBadge = isArchived ? `<div style="font-size:11px; font-weight:700; background:rgba(0,0,0,0.2); padding:2px 6px; border-radius:12px; margin-left:8px; color:var(--text); letter-spacing:0.5px;"><i class="fas fa-archive"></i> Arquivado</div>` : '';
+        const opacity = (isLocked || isArchived) ? 'opacity: 0.5; filter: grayscale(50%);' : '';
+        const clickAction = isLocked ? `showLockedGroupAlert()` : `openGroupDetail('${g.id}', '${g.name.replace(/'/g, "\\'")}', '${g.created_by}', ${isArchived})`;
 
         list.innerHTML += `
             <div class="group-item" style="${opacity}" onclick="${clickAction}">
-                <div>
-                    <div class="group-name" style="margin-bottom:2px;">${g.name}</div>
-                    <div class="group-role">${role}</div>
+                <div style="display:flex; align-items:center;">
+                    <div>
+                        <div class="group-name" style="margin-bottom:2px;">${g.name}</div>
+                        <div class="group-role">${role}</div>
+                    </div>
+                    ${isArchived ? archivedBadge : ''}
                 </div>
                 ${isLocked ? lockBadge : '<i class="fas fa-chevron-right" style="color:var(--text-muted);"></i>'}
             </div>
@@ -1467,8 +1495,8 @@ window.showLockedGroupAlert = function () {
     showPaywall();
 }
 
-function openGroupDetail(id, name) {
-    currentGroup = { id, name };
+function openGroupDetail(id, name, createdBy, isArchived) {
+    currentGroup = { id, name, createdBy, isArchived };
     document.getElementById('group-detail-title').textContent = name;
     navigateTo('group-detail');
     loadGroupDetail(id);
@@ -1549,7 +1577,9 @@ async function loadGroupDetail(groupId) {
             } else if (iOwe) {
                 htmlClass = 'negative';
                 textHtml = `${t('js_you_owe')} <strong>${creditorName}</strong>`;
-                btnHtml = `<button onclick="settleDebt('${d.debtor_id}','${d.creditor_id}',${d.amount})" class="btn-small" style="background:var(--accent);">${t('js_btn_pay')}</button>`;
+                if (!currentGroup.isArchived) {
+                    btnHtml = `<button onclick="settleDebt('${d.debtor_id}','${d.creditor_id}',${d.amount})" class="btn-small" style="background:var(--accent);">${t('js_btn_pay')}</button>`;
+                }
             } else {
                 textHtml = `<strong>${debtorName}</strong> ${t('js_owes')} ${creditorName}`;
             }
@@ -1599,11 +1629,43 @@ async function loadGroupDetail(groupId) {
                     </div>
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
-                        ${e.paid_by === currentUser.id ? `<button onclick="deleteGroupExpense('${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
+                        ${(e.paid_by === currentUser.id && !currentGroup.isArchived) ? `<button onclick="deleteGroupExpense('${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
                     </div>
                 </div>
             `;
         });
+    }
+
+    // --- APPLY ARCHIVE / ROLE STATE --- //
+    const isOwner = currentUser.id === currentGroup.createdBy;
+    const isArchived = currentGroup.isArchived === true;
+
+    const banner = document.getElementById('group-archived-banner');
+    const fabAdd = document.getElementById('group-fab-add');
+    const inviteContainer = document.getElementById('invite-container');
+    const archiveBtn = document.getElementById('archive-group-btn');
+    const leaveBtn = document.getElementById('leave-group-btn');
+
+    if (banner && fabAdd && archiveBtn && leaveBtn) {
+        if (isArchived) {
+            banner.classList.remove('hidden');
+            fabAdd.classList.add('hidden');
+            if (inviteContainer) inviteContainer.classList.add('hidden');
+            archiveBtn.classList.add('hidden');
+            leaveBtn.classList.add('hidden');
+        } else {
+            banner.classList.add('hidden');
+            fabAdd.classList.remove('hidden');
+            if (inviteContainer) inviteContainer.classList.remove('hidden');
+
+            if (isOwner) {
+                archiveBtn.classList.remove('hidden');
+                leaveBtn.classList.add('hidden');
+            } else {
+                archiveBtn.classList.add('hidden');
+                leaveBtn.classList.remove('hidden');
+            }
+        }
     }
 }
 
@@ -1619,6 +1681,11 @@ window.deleteGroupExpense = async function (expenseId) {
 }
 
 window.settleDebt = async function (debtor_id, creditor_id, amount) {
+    if (currentGroup?.isArchived) {
+        alert(t('js_error') + " Grupo Arquivado (Apenas Leitura).");
+        return;
+    }
+
     if (confirm(`${t('js_confirm_settle_debt')} ${amount.toFixed(2)} €?`)) {
         const { error } = await supabaseClient.rpc('settle_debt', {
             p_group_id: currentGroup.id,

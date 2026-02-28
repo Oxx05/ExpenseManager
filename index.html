@@ -363,6 +363,11 @@
                 </button>
                 <h1 id="group-detail-title" data-i18n="group_detail_title">Grupo</h1>
             </header>
+            <div id="group-archived-banner" class="hidden"
+                style="background:var(--danger); color:white; text-align:center; padding:8px; font-size:13px; font-weight:700; letter-spacing:0.5px;">
+                <i class="fas fa-archive" style="margin-right:5px;"></i> <span data-i18n="group_archived_banner">GRUPO
+                    ARQUIVADO (Apenas Leitura)</span>
+            </div>
 
             <div class="group-tabs" style="display:flex; border-bottom:1px solid #333;">
                 <button class="group-tab active" data-tab="expenses" data-i18n="tab_expenses"
@@ -395,9 +400,12 @@
                 </div>
 
                 <div
-                    style="margin-top: 40px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px;">
-                    <button id="leave-group-btn" class="btn-small"
-                        style="background: rgba(229, 49, 112, 0.1); color: var(--danger); border: 1px solid var(--danger);"
+                    style="margin-top: 40px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <button id="archive-group-btn" class="btn-small hidden"
+                        style="background: rgba(255, 165, 0, 0.1); color: orange; border: 1px solid orange; width: 100%;"
+                        data-i18n="btn_archive_group">Arquivar Grupo</button>
+                    <button id="leave-group-btn" class="btn-small hidden"
+                        style="background: rgba(229, 49, 112, 0.1); color: var(--danger); border: 1px solid var(--danger); width: 100%;"
                         data-i18n="btn_leave_group">Sair do Grupo</button>
                 </div>
                 <!-- Settle debt modal inside code via JS or simply auto-settle on click -->
