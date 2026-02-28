@@ -646,7 +646,7 @@ async function renderCategories() {
     const isPro = currentUser?.is_pro;
 
     categoriesCache.forEach(cat => {
-        const catExpenses = allExpenses.filter(e => e.categoryId === cat.id);
+        const catExpenses = allExpenses.filter(e => String(e.categoryId) === String(cat.id));
         const count = catExpenses.length;
         const total = catExpenses.reduce((sum, e) => sum + e.amount, 0);
 
@@ -715,6 +715,60 @@ async function renderCategories() {
             }, 500);
         });
     });
+
+    // Render Recurring Expenses List
+    const recurringList = document.getElementById('recurring-expenses-list');
+    if (recurringList) {
+        recurringList.innerHTML = '';
+        const allDbExpenses = await db.getAllExpenses();
+        const activeRecurring = allDbExpenses.filter(e => e.isRecurring && e.recurringType && e.recurringType !== 'none');
+
+        if (activeRecurring.length === 0) {
+            recurringList.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-dim); font-size: 13px;" data-i18n="no_recurring">Não existem despesas recorrentes ativas.</div>`;
+        } else {
+            activeRecurring.forEach(expense => {
+                const cat = categoriesCache.find(c => String(c.id) === String(expense.categoryId)) || { icon: '💰', name: t('js_others') || 'Outros', color: '#666' };
+                const item = document.createElement('div');
+                item.className = 'category-item';
+
+                let freqText = '';
+                if (expense.recurringType === 'daily') freqText = t('js_daily') || 'Diário';
+                else if (expense.recurringType === 'weekly') freqText = t('js_weekly') || 'Semanal';
+                else if (expense.recurringType === 'monthly') freqText = t('js_monthly') || 'Mensal';
+                else if (expense.recurringType === 'yearly') freqText = t('js_yearly') || 'Anual';
+
+                item.innerHTML = `
+                  <div class="category-item-left" style="cursor: pointer; flex: 1;">
+                    <div class="category-item-icon" style="background:${cat.color}22; font-size:18px;">${cat.icon}</div>
+                    <div style="flex:1;">
+                      <div class="category-item-name" style="font-size:14px;">${expense.description || cat.name}</div>
+                      <div class="category-item-count" style="color: var(--primary-light); font-weight: 600; font-size: 11px;">
+                        <i class="fas fa-sync-alt" style="font-size:9px; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
+                      </div>
+                      <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${formatDatePT(expense.date)}</div>
+                    </div>
+                  </div>
+                  <button class="category-delete-btn recurring-delete-btn" data-id="${expense.id}" title="Eliminar Recorrência">🗑️</button>
+                `;
+                recurringList.appendChild(item);
+
+                // Click to edit
+                item.querySelector('.category-item-left').addEventListener('click', () => {
+                    openAddExpense(expense.date, expense.id);
+                });
+
+                // Click to delete
+                item.querySelector('.recurring-delete-btn').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (confirm('Pretende eliminar esta despesa recorrente e todas as suas projecções futuras?')) {
+                        await db.deleteRecurringAndChildren(expense.id);
+                        renderCategories();
+                        renderCalendar();
+                    }
+                });
+            });
+        }
+    }
 }
 
 async function addCategory() {
