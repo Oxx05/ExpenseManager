@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             payerSelect.appendChild(opt);
         });
 
-        // Populate splits (equal split by default)
+        // Populate splits (MBWay style custom inputs)
         const splitsContainer = document.getElementById('group-expense-splits');
         splitsContainer.innerHTML = '';
         currentGroupMembers.forEach(m => {
@@ -1000,25 +1000,81 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <input type="checkbox" class="split-checkbox" value="${m.profiles.id}" checked style="width:16px; height:16px; accent-color:var(--accent);">
                         ${m.profiles.name || m.profiles.email}
                     </label>
-                    <span class="split-amount-preview" data-id="${m.profiles.id}">0.00 €</span>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <input type="number" step="0.01" min="0" class="split-amount-input" data-id="${m.profiles.id}" style="width:80px; padding:6px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); text-align:right; font-size:14px;">
+                        <span style="color:var(--text-dim); font-size:14px;">€</span>
+                    </div>
                 </div>
             `;
         });
 
-        // Recalculate splits on amount change or checkbox flip
-        const calcSplits = () => {
-            const total = parseFloat(document.getElementById('group-expense-amount').value) || 0;
-            const checkedBoxes = document.querySelectorAll('.split-checkbox:checked');
-            const splitVal = checkedBoxes.length > 0 ? total / checkedBoxes.length : 0;
+        let manualSplits = {};
 
-            document.querySelectorAll('.split-amount-preview').forEach(el => el.textContent = '0.00 €');
+        // Recalculate splits on amount change or checkbox flip or manual input edit
+        const calcSplits = (e) => {
+            const total = parseFloat(document.getElementById('group-expense-amount').value) || 0;
+            const checkedBoxes = Array.from(document.querySelectorAll('.split-checkbox:checked'));
+            const inputs = document.querySelectorAll('.split-amount-input');
+
+            // If the user manually edited an input, "lock" it
+            if (e && e.target && e.target.classList.contains('split-amount-input')) {
+                const id = e.target.dataset.id;
+                if (e.target.value === '') {
+                    delete manualSplits[id];
+                } else {
+                    manualSplits[id] = parseFloat(e.target.value) || 0;
+                }
+            }
+
+            // If a checkbox is toggled off, unlock its manual split
+            if (e && e.target && e.target.classList.contains('split-checkbox')) {
+                if (!e.target.checked) {
+                    delete manualSplits[e.target.value];
+                    document.querySelector(`.split-amount-input[data-id="${e.target.value}"]`).value = '';
+                }
+            }
+
+            // Calculate auto splits
+            let remainingTotal = total;
+            let autoCount = 0;
+
             checkedBoxes.forEach(cb => {
-                document.querySelector(`.split-amount-preview[data-id="${cb.value}"]`).textContent = splitVal.toFixed(2) + ' €';
+                const id = cb.value;
+                if (manualSplits.hasOwnProperty(id)) {
+                    remainingTotal -= manualSplits[id];
+                } else {
+                    autoCount++;
+                }
+            });
+
+            const autoSplitVal = autoCount > 0 ? Math.max(0, remainingTotal / autoCount) : 0;
+
+            // Update inputs visually
+            inputs.forEach(input => {
+                const id = input.dataset.id;
+                const checkbox = document.querySelector(`.split-checkbox[value="${id}"]`);
+
+                if (!checkbox.checked) {
+                    input.value = '';
+                    input.disabled = true;
+                    input.style.opacity = '0.4';
+                } else {
+                    input.disabled = false;
+                    input.style.opacity = '1';
+                    if (!manualSplits.hasOwnProperty(id)) {
+                        input.value = autoSplitVal.toFixed(2);
+                    }
+                }
             });
         };
 
-        document.getElementById('group-expense-amount').addEventListener('input', calcSplits);
+        document.getElementById('group-expense-amount').addEventListener('input', (e) => {
+            // If the total amount changes, we reset manual splits to keep it simple, or we keep them.
+            // Keeping them might result in negative remaining total, so let's keep them and let it cap at 0
+            calcSplits(e);
+        });
         document.querySelectorAll('.split-checkbox').forEach(cb => cb.addEventListener('change', calcSplits));
+        document.querySelectorAll('.split-amount-input').forEach(inp => inp.addEventListener('input', calcSplits));
 
         navigateTo('add-group-expense');
     });
@@ -1034,11 +1090,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const checkedBoxes = document.querySelectorAll('.split-checkbox:checked');
         if (checkedBoxes.length === 0 || total <= 0) return alert(t('js_invalid_expense'));
 
-        const splitVal = total / checkedBoxes.length;
+        let sumSplits = 0;
         const splits = [];
-        document.querySelectorAll('.split-checkbox').forEach(cb => {
-            if (cb.checked) splits.push({ user_id: cb.value, amount: splitVal });
+        document.querySelectorAll('.split-checkbox:checked').forEach(cb => {
+            const id = cb.value;
+            const amt = parseFloat(document.querySelector(`.split-amount-input[data-id="${id}"]`).value) || 0;
+            splits.push({ user_id: id, amount: amt });
+            sumSplits += amt;
         });
+
+        if (Math.abs(sumSplits - total) > 0.05) {
+            return alert(`A soma das divisões (${sumSplits.toFixed(2)} €) não corresponde ao total exato da fatura (${total.toFixed(2)} €). Por favor, ajusta os valores.`);
+        }
 
         const { error } = await supabaseClient.rpc('add_group_expense', {
             p_group_id: currentGroup.id,
@@ -1253,8 +1316,7 @@ async function loadGroupDetail(groupId) {
         .from('group_expenses')
         .select(`
             id, amount, description, date,
-            paid_by,
-            profiles(name, email)
+            paid_by
         `)
         .eq('group_id', groupId)
         .order('date', { ascending: false })
@@ -1267,7 +1329,10 @@ async function loadGroupDetail(groupId) {
         expensesList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_no_group_expenses')}</div>`;
     } else {
         expenses.forEach(e => {
-            const paidByName = e.paid_by === currentUser.id ? t('js_you') : (e.profiles?.name || e.profiles?.email || t('js_someone'));
+            let paidByName = t('js_someone');
+            if (e.paid_by === currentUser.id) paidByName = t('js_you');
+            else if (profileMap[e.paid_by]) paidByName = profileMap[e.paid_by].name || profileMap[e.paid_by].email;
+
             expensesList.innerHTML += `
                 <div class="expense-item">
                     <div class="expense-item-left">
@@ -1277,10 +1342,24 @@ async function loadGroupDetail(groupId) {
                             <div class="expense-item-recurring">${t('js_paid_by')} ${paidByName} (${e.date})</div>
                         </div>
                     </div>
-                    <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
+                        ${e.paid_by === currentUser.id ? `<button onclick="deleteGroupExpense('${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
+                    </div>
                 </div>
             `;
         });
+    }
+}
+
+window.deleteGroupExpense = async function (expenseId) {
+    if (confirm(t('js_confirm_delete'))) {
+        const { error } = await supabaseClient.rpc('delete_group_expense', {
+            p_group_id: currentGroup.id,
+            p_expense_id: expenseId
+        });
+        if (error) alert("Erro ao apagar despesa de grupo: " + error.message);
+        else loadGroupDetail(currentGroup.id);
     }
 }
 

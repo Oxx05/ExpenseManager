@@ -197,6 +197,54 @@ END;
 $$ LANGUAGE plpgsql security definer;
 
 -- =========================================================================
+-- FUNÇÃO RPC PARA APAGAR DESPESA (REVERTER DÍVIDAS)
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.delete_group_expense(
+  p_group_id uuid,
+  p_expense_id uuid
+) RETURNS boolean AS $$
+DECLARE
+  v_paid_by uuid;
+  split record;
+  debt record;
+BEGIN
+  SELECT paid_by INTO v_paid_by FROM public.group_expenses WHERE id = p_expense_id AND group_id = p_group_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Despesa não encontrada';
+  END IF;
+
+  FOR split IN SELECT * FROM public.expense_splits WHERE expense_id = p_expense_id
+  LOOP
+    IF split.user_id != v_paid_by AND split.amount > 0 THEN
+      
+      SELECT * INTO debt FROM public.debts WHERE group_id = p_group_id AND debtor_id = split.user_id AND creditor_id = v_paid_by FOR UPDATE;
+      IF FOUND THEN
+        IF debt.amount > split.amount THEN
+          UPDATE public.debts SET amount = amount - split.amount, updated_at = now() WHERE id = debt.id;
+        ELSIF debt.amount < split.amount THEN
+          UPDATE public.debts SET amount = split.amount - debt.amount, debtor_id = v_paid_by, creditor_id = split.user_id, updated_at = now() WHERE id = debt.id;
+        ELSE
+          DELETE FROM public.debts WHERE id = debt.id;
+        END IF;
+      ELSE
+        SELECT * INTO debt FROM public.debts WHERE group_id = p_group_id AND debtor_id = v_paid_by AND creditor_id = split.user_id FOR UPDATE;
+        IF FOUND THEN
+          UPDATE public.debts SET amount = amount + split.amount, updated_at = now() WHERE id = debt.id;
+        ELSE
+          INSERT INTO public.debts (group_id, debtor_id, creditor_id, amount)
+          VALUES (p_group_id, v_paid_by, split.user_id, split.amount);
+        END IF;
+      END IF;
+
+    END IF;
+  END LOOP;
+
+  DELETE FROM public.group_expenses WHERE id = p_expense_id;
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql security definer;
+
+-- =========================================================================
 -- FUNÇÃO RPC PARA LIQUIDAR DÍVIDA (SETTLE DEBT)
 -- =========================================================================
 CREATE OR REPLACE FUNCTION public.settle_debt(
