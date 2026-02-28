@@ -86,6 +86,9 @@ const translations = {
         "email_placeholder": "exemplo@email.com",
         "send_magic_link": "Enviar Magic Link",
         "btn_logout": "Sair da Conta",
+        "profile_name": "Nome",
+        "profile_phone": "Telemóvel (opcional)",
+        "btn_save_profile": "Guardar Perfil",
         // Export Tab
         "export_title": "Exportar",
         "export_from": "De",
@@ -226,6 +229,9 @@ const translations = {
         "email_placeholder": "example@email.com",
         "send_magic_link": "Send Magic Link",
         "btn_logout": "Sign Out",
+        "profile_name": "Name",
+        "profile_phone": "Phone (optional)",
+        "btn_save_profile": "Save Profile",
         // Export Tab
         "export_title": "Export",
         "export_from": "From",

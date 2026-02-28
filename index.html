@@ -479,14 +479,28 @@
                         style="width:64px; height:64px; border-radius:50%; background:var(--accent); color:white; font-size:28px; font-weight:bold; display:flex; align-items:center; justify-content:center; margin:0 auto 15px;">
                         ?</div>
                     <h2 style="margin-bottom:5px;">
-                        <span id="account-name">Utilizador</span>
+                        <span id="account-name-header">Utilizador</span>
                         <span id="pro-badge" class="hidden"
                             style="background:var(--primary); color:white; font-size:12px; padding:2px 8px; border-radius:12px; vertical-align:middle; margin-left:8px; font-weight:bold;">PRO
                             🌟</span>
                     </h2>
-                    <p id="account-email" style="color:var(--text-dim); margin-bottom:15px; font-size:14px;">email</p>
-                    <button id="logout-btn" class="btn-danger" style="width:100%;" data-i18n="btn_logout">Sair da
-                        Conta</button>
+                    <p id="account-email" style="color:var(--text-dim); margin-bottom:20px; font-size:14px;">email</p>
+
+                    <form id="profile-form" class="form" style="text-align:left; margin-bottom:20px;">
+                        <div class="form-group">
+                            <label for="profile-name" data-i18n="profile_name">Nome</label>
+                            <input type="text" id="profile-name" placeholder="O teu nome">
+                        </div>
+                        <div class="form-group">
+                            <label for="profile-phone" data-i18n="profile_phone">Telemóvel (opcional)</label>
+                            <input type="tel" id="profile-phone" placeholder="+351 900 000 000">
+                        </div>
+                        <button type="submit" class="btn-primary" id="profile-save-btn"
+                            style="width:100%; margin-top:10px;" data-i18n="btn_save_profile">Guardar Perfil</button>
+                    </form>
+
+                    <button id="logout-btn" class="btn-danger" style="width:100%; padding:14px;"
+                        data-i18n="btn_logout">Sair da Conta</button>
                 </div>
             </div>
         </div>

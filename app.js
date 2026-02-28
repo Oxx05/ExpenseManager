@@ -934,23 +934,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Invite Member
+    // Invite Member (Fixing the Single vs Limit Bug)
     document.getElementById('invite-btn').addEventListener('click', async () => {
         const email = document.getElementById('invite-email').value;
         if (!email || !currentGroup) return;
 
-        // 1. Encontrar o perfil do utilizador pelo email
-        const { data: profile } = await supabaseClient.from('profiles').select('id').eq('email', email).single();
-        if (!profile) {
+        // 1. Encontrar o perfil do utilizador pelo email (usar .limit(1) evita o erro 406 Not Acceptable se houver contas raras duplicadas na DB)
+        const { data: profiles, error: profileErr } = await supabaseClient.from('profiles').select('id').eq('email', email).limit(1);
+        if (profileErr || !profiles || profiles.length === 0) {
             alert(t('js_err_user_not_found'));
             return;
         }
 
+        const profileId = profiles[0].id;
 
         // 2. Adicionar ao grupo
-        const { error } = await supabaseClient.from('group_members').insert({ group_id: currentGroup.id, user_id: profile.id });
-        if (error) alert(t('js_err_add_member'));
-        else {
+        const { error } = await supabaseClient.from('group_members').insert({ group_id: currentGroup.id, user_id: profileId });
+        if (error) {
+            alert(t('js_err_add_member') + " " + error.message);
+        } else {
             document.getElementById('invite-email').value = '';
             loadGroupDetail(currentGroup.id);
         }
@@ -1220,13 +1222,19 @@ function updateAuthUI() {
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('account-logged-in').classList.remove('hidden');
 
-        // Obter infos para exibir
-        supabaseClient.from('profiles').select('name, email').eq('id', currentUser.id).single()
+        // Obter infos para exibir e preencher formulário
+        supabaseClient.from('profiles').select('name, email, phone').eq('id', currentUser.id).single()
             .then(({ data }) => {
                 if (data) {
-                    document.getElementById('account-name').textContent = data.name || data.email;
+                    document.getElementById('account-name-header').textContent = data.name || data.email;
                     document.getElementById('account-email').textContent = data.email;
                     document.getElementById('account-avatar').textContent = (data.name || data.email).charAt(0).toUpperCase();
+
+                    // Preencher formulário de perfil
+                    const nameInput = document.getElementById('profile-name');
+                    const phoneInput = document.getElementById('profile-phone');
+                    if (nameInput) nameInput.value = data.name || '';
+                    if (phoneInput) phoneInput.value = data.phone || '';
                 }
             });
 
@@ -1245,6 +1253,40 @@ function updateAuthUI() {
         if (document.getElementById('groups-unauth-msg')) {
             document.getElementById('groups-unauth-msg').classList.add('hidden');
             document.getElementById('groups-section').classList.remove('hidden');
+        }
+
+        // Configurar o botão de guardar perfil (apenas uma vez para evitar leaks)
+        const profileForm = document.getElementById('profile-form');
+        if (profileForm) {
+            // Remove previous listeners stringing by replacing element
+            const newForm = profileForm.cloneNode(true);
+            profileForm.parentNode.replaceChild(newForm, profileForm);
+
+            newForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('profile-save-btn');
+                const oldText = btn.textContent;
+                btn.textContent = "...";
+                btn.disabled = true;
+
+                const nameVal = document.getElementById('profile-name').value;
+                const phoneVal = document.getElementById('profile-phone').value;
+
+                const { error } = await supabaseClient.from('profiles').update({
+                    name: nameVal,
+                    phone: phoneVal
+                }).eq('id', currentUser.id);
+
+                if (error) {
+                    alert(`${t('js_err_save')} ${error.message}`);
+                } else {
+                    document.getElementById('account-name-header').textContent = nameVal || currentUser.email;
+                    document.getElementById('account-avatar').textContent = (nameVal || currentUser.email).charAt(0).toUpperCase();
+                }
+
+                btn.textContent = oldText;
+                btn.disabled = false;
+            });
         }
 
     } else {

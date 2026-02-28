@@ -2,7 +2,9 @@
 CREATE TABLE public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text unique not null,
-  name text
+  name text,
+  phone text,
+  avatar_url text
 );
 
 -- Habilitar RLS
