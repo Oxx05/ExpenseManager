@@ -934,27 +934,80 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Invite Member (Fixing the Single vs Limit Bug)
+    // Invite Member (Using the new RPC to enforce limits)
     document.getElementById('invite-btn').addEventListener('click', async () => {
         const email = document.getElementById('invite-email').value;
         if (!email || !currentGroup) return;
 
-        // 1. Encontrar o perfil do utilizador pelo email (usar .limit(1) evita o erro 406 Not Acceptable se houver contas raras duplicadas na DB)
-        const { data: profiles, error: profileErr } = await supabaseClient.from('profiles').select('id').eq('email', email).limit(1);
-        if (profileErr || !profiles || profiles.length === 0) {
-            alert(t('js_err_user_not_found'));
+        const btn = document.getElementById('invite-btn');
+        btn.disabled = true;
+        btn.textContent = t('js_sending_link');
+
+        const { data, error } = await supabaseClient.rpc('invite_user_to_group', {
+            p_group_id: currentGroup.id,
+            p_email: email
+        });
+
+        btn.disabled = false;
+        btn.textContent = t('btn_invite');
+
+        if (error) {
+            alert(t('js_error') + " " + error.message);
             return;
         }
 
-        const profileId = profiles[0].id;
-
-        // 2. Adicionar ao grupo
-        const { error } = await supabaseClient.from('group_members').insert({ group_id: currentGroup.id, user_id: profileId });
-        if (error) {
-            alert(t('js_err_add_member') + " " + error.message);
-        } else {
+        if (data.success) {
             document.getElementById('invite-email').value = '';
             loadGroupDetail(currentGroup.id);
+        } else {
+            // Handle specific errors natively
+            if (data.error_code === 'USER_NOT_FOUND') {
+                if (confirm(t('js_invite_not_found'))) {
+                    // Try to trigger Native Share API or Mailto Fallback
+                    const shareText = t('js_invite_share_text');
+                    const shareUrl = window.location.origin;
+                    if (navigator.share) {
+                        navigator.share({
+                            title: t('js_invite_share_title'),
+                            text: shareText,
+                            url: shareUrl
+                        }).catch(console.error);
+                    } else {
+                        window.location.href = `mailto:${email}?subject=${encodeURIComponent(t('js_invite_share_title'))}&body=${encodeURIComponent(shareText + "\n" + shareUrl)}`;
+                    }
+                }
+            } else if (data.error_code === 'ALREADY_MEMBER') {
+                alert(t('js_err_invite_member'));
+            } else if (data.error_code === 'LIMIT_REACHED') {
+                alert(t('js_err_invite_limit'));
+            }
+        }
+    });
+
+    // Leave Group
+    document.getElementById('leave-group-btn').addEventListener('click', async () => {
+        if (!currentGroup) return;
+        if (!confirm(t('js_confirm_leave_group'))) return;
+
+        const btn = document.getElementById('leave-group-btn');
+        btn.disabled = true;
+
+        const { data, error } = await supabaseClient.rpc('leave_group', {
+            p_group_id: currentGroup.id
+        });
+
+        btn.disabled = false;
+
+        if (error) {
+            alert(t('js_error') + " " + error.message);
+            return;
+        }
+
+        if (data.success) {
+            navigateGroupBack();
+            renderGroupsScreen();
+        } else if (data.error_code === 'HAS_DEBTS') {
+            alert(t('js_err_leave_debts'));
         }
     });
 

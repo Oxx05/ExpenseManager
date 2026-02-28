@@ -149,7 +149,15 @@ const translations = {
         "js_err_user_not_found": "Utilizador não registado na aplicação.",
         "js_err_add_member": "Erro ao adicionar membro ou já pertence ao grupo.",
         "js_invalid_expense": "Despesa inválida",
-        "js_err_save": "Erro ao guardar:"
+        "js_err_save": "Erro ao guardar:",
+        "btn_leave_group": "Sair do Grupo",
+        "js_err_leave_debts": "Tens de saldar as tuas dívidas (a pagar ou a receber) antes de sair do grupo.",
+        "js_confirm_leave_group": "Tens a certeza que queres sair deste grupo?",
+        "js_err_invite_limit": "Este utilizador já atingiu o limite de grupos gratuitos. Ele precisa do Premium para entrar noutro grupo.",
+        "js_err_invite_member": "Este utilizador já faz parte do grupo.",
+        "js_invite_not_found": "Utilizador não encontrado.\nQueres partilhar um convite da App com ele via WhatsApp ou Email?",
+        "js_invite_share_title": "Junta-te a mim no Despesas!",
+        "js_invite_share_text": "Criei um grupo partilhado e preciso que entres."
     },
     en: {
         // App
@@ -301,7 +309,15 @@ const translations = {
         "js_err_user_not_found": "User not registered in the application.",
         "js_err_add_member": "Error adding member or already in group.",
         "js_invalid_expense": "Invalid expense",
-        "js_err_save": "Error saving:"
+        "js_err_save": "Error saving:",
+        "btn_leave_group": "Leave Group",
+        "js_err_leave_debts": "You must settle your debts (pay or receive) before leaving the group.",
+        "js_confirm_leave_group": "Are you sure you want to leave this group?",
+        "js_err_invite_limit": "This user has reached the free groups limit. They need Premium to join another group.",
+        "js_err_invite_member": "This user is already part of the group.",
+        "js_invite_not_found": "User not found.\nDo you want to share an App invite with them via WhatsApp or Email?",
+        "js_invite_share_title": "Join me on Expenses!",
+        "js_invite_share_text": "I created a shared group and need you to join."
     }
 };
 

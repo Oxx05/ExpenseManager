@@ -361,3 +361,70 @@ BEGIN
   WHERE gm.group_id = p_group_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- FUNÇÃO RPC PARA CONVIDAR UTILIZADOR COM VALIDAÇÃO DE LIMITES
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.invite_user_to_group(
+  p_group_id uuid,
+  p_email text
+) RETURNS jsonb AS $$
+DECLARE
+  v_user_id uuid;
+  v_is_pro boolean;
+  v_group_count int;
+BEGIN
+  -- 1. Encontrar utilizador
+  SELECT id INTO v_user_id FROM public.profiles WHERE email = p_email LIMIT 1;
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error_code', 'USER_NOT_FOUND');
+  END IF;
+
+  -- 2. Verificar se já é membro
+  IF EXISTS (SELECT 1 FROM public.group_members WHERE group_id = p_group_id AND user_id = v_user_id) THEN
+    RETURN jsonb_build_object('success', false, 'error_code', 'ALREADY_MEMBER');
+  END IF;
+
+  -- 3. Verificar limites do Freemium
+  SELECT COALESCE((SELECT is_pro FROM public.subscriptions WHERE user_id = v_user_id), false) INTO v_is_pro;
+  IF NOT v_is_pro THEN
+    SELECT count(*) INTO v_group_count FROM public.group_members WHERE user_id = v_user_id;
+    IF v_group_count >= 1 THEN
+      RETURN jsonb_build_object('success', false, 'error_code', 'LIMIT_REACHED');
+    END IF;
+  END IF;
+
+  -- 4. Adicionar ao grupo
+  INSERT INTO public.group_members (group_id, user_id) VALUES (p_group_id, v_user_id);
+  
+  RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- =========================================================================
+-- FUNÇÃO RPC PARA SAIR DO GRUPO (VERIFICA DÍVIDAS)
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.leave_group(
+  p_group_id uuid
+) RETURNS jsonb AS $$
+DECLARE
+  v_debt_count int;
+BEGIN
+  -- Verificar se o utilizador tem dívidas pendentes neste grupo (a receber ou a pagar)
+  SELECT count(*) INTO v_debt_count 
+  FROM public.debts 
+  WHERE group_id = p_group_id 
+    AND (debtor_id = auth.uid() OR creditor_id = auth.uid()) 
+    AND amount > 0;
+
+  IF v_debt_count > 0 THEN
+    RETURN jsonb_build_object('success', false, 'error_code', 'HAS_DEBTS');
+  END IF;
+
+  -- Remover dos membros do grupo
+  DELETE FROM public.group_members WHERE group_id = p_group_id AND user_id = auth.uid();
+  
+  RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
