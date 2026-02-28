@@ -1319,7 +1319,7 @@ function updateAuthUI() {
                 avatarDiv.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 20px;"></i>';
 
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${currentUser.id}.${fileExt}`;
+                const fileName = `${currentUser.id}/avatar.${fileExt}`;
 
                 try {
                     // Importante: A DB precisa de ter uma Storage Bucket "avatars" pública ativada

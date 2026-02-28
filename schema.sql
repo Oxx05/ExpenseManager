@@ -304,3 +304,23 @@ CREATE POLICY "Users can update their subscriptions" ON public.push_subscription
 CREATE POLICY "Users can delete their subscriptions" ON public.push_subscriptions FOR DELETE USING (auth.uid() = user_id);
 -- Permitir que funções e webhooks o leiam (para enviar pushes)
 CREATE POLICY "Edge Functions can read subscriptions" ON public.push_subscriptions FOR SELECT USING (true);
+
+-- =========================================================================
+-- STORAGE BUCKETS SECURITY POLICIES (Supabase Storage)
+-- =========================================================================
+
+-- Permitir leitura pública dos avatars
+CREATE POLICY "Avatar images are publicly accessible." 
+ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+
+-- Permitir a utilizadores autenticados fazerem upload para a pasta com o seu UID
+CREATE POLICY "Users can upload their own avatar." 
+ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'avatars' AND auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Permitir a utilizadores autenticados atualizarem o seu próprio avatar
+CREATE POLICY "Users can update their own avatar." 
+ON storage.objects FOR UPDATE USING (
+  bucket_id = 'avatars' AND auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text
+);
