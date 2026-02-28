@@ -203,8 +203,6 @@ async function renderCalendar() {
     const expenses = [...localExpenses, ...groupExpenses];
 
     categoriesCache = await db.getAllCategories();
-    // Injetar uma categoria falsa para as despesas de grupo serem renderizadas com estilo
-    categoriesCache.push({ id: 'group_expense', name: t('js_group_badge'), icon: '👥', color: '#7f5af0' });
 
     // Group by date
     const byDate = {};
@@ -767,7 +765,6 @@ async function renderSummary() {
 
     const expenses = [...localExpenses, ...groupExpenses];
     categoriesCache = categories;
-    categoriesCache.push({ id: 'group_expense', name: t('js_group_badge'), icon: '👥', color: '#7f5af0' });
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
@@ -813,7 +810,13 @@ async function renderSummary() {
     let chartHtml = '';
 
     sorted.forEach(([catId, amount]) => {
-        const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+        let cat;
+        if (catId === 'group_expense') {
+            cat = { icon: '👥', name: t('js_group_badge') || 'Grupo', color: '#7f5af0' };
+        } else {
+            cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+        }
+
         const pct = (amount / maxAmount) * 100;
         const percentOfTotal = ((amount / total) * 100).toFixed(1);
 
@@ -882,7 +885,12 @@ async function renderSummary() {
                 let legendHtml = '';
 
                 sorted.forEach(([catId, amount]) => {
-                    const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+                    let cat;
+                    if (catId === 'group_expense') {
+                        cat = { icon: '👥', name: t('js_group_badge') || 'Grupo', color: '#7f5af0' };
+                    } else {
+                        cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+                    }
                     const pct = amount / total;
                     const dashLen = pct * circumference;
                     const dashGap = circumference - dashLen;
@@ -1981,7 +1989,11 @@ async function loadGroupDetail(groupId) {
     debtsList.innerHTML = '';
 
     if (!debts || debts.length === 0) {
-        debtsList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_all_settled_debts')}</div>`;
+        debtsList.innerHTML = `<div style="text-align:center; padding:30px 20px; color:var(--text-dim); background:var(--bg-input); border-radius:12px; margin-bottom:30px;">
+            <div style="font-size:32px; margin-bottom:10px;">🎉</div>
+            <div style="font-weight:600; margin-bottom:5px;">Tudo liquidado!</div>
+            <div style="font-size:12px;">Não há dívidas pendentes neste grupo.</div>
+        </div>`;
     } else {
         debts.forEach(d => {
             const isOwedToMe = d.creditor_id === currentUser.id;
@@ -2024,7 +2036,8 @@ async function loadGroupDetail(groupId) {
         .from('group_expenses')
         .select(`
             id, amount, description, date,
-            paid_by
+            paid_by,
+            expense_splits ( user_id, amount )
         `)
         .eq('group_id', groupId)
         .order('date', { ascending: false })
@@ -2034,25 +2047,53 @@ async function loadGroupDetail(groupId) {
     expensesList.innerHTML = '';
 
     if (!expenses || expenses.length === 0) {
-        expensesList.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_no_group_expenses')}</div>`;
+        expensesList.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-dim); background:var(--bg-input); border-radius:12px; margin-top:20px;">
+            <div style="font-size:32px; margin-bottom:10px;">🧾</div>
+            <div style="font-weight:600; margin-bottom:5px;">Nenhuma despesa</div>
+            <div style="font-size:12px;">Clica no botão + para adicionar a primeira despesa do grupo.</div>
+        </div>`;
     } else {
         expenses.forEach(e => {
             let paidByName = t('js_someone');
-            if (e.paid_by === currentUser.id) paidByName = t('js_you');
+            const iPaid = e.paid_by === currentUser.id;
+
+            if (iPaid) paidByName = t('js_you');
             else if (profileMap[e.paid_by]) paidByName = profileMap[e.paid_by].name || profileMap[e.paid_by].email;
 
+            // Calculate my split
+            const mySplitObj = e.expense_splits.find(s => s.user_id === currentUser.id);
+            const mySplit = mySplitObj ? mySplitObj.amount : 0;
+
+            let splitText = '';
+            let splitColor = 'var(--text-dim)';
+
+            if (mySplit > 0) {
+                if (iPaid) {
+                    const owedToMe = e.amount - mySplit;
+                    splitText = `Tu pagaste ${e.amount.toFixed(2)}€ (Tua parte: ${mySplit.toFixed(2)}€)`;
+                    splitColor = owedToMe > 0 ? 'var(--success)' : 'var(--text-dim)';
+                } else {
+                    splitText = `${paidByName} pagou ${e.amount.toFixed(2)}€ (Tu deves: ${mySplit.toFixed(2)}€)`;
+                    splitColor = 'var(--danger)';
+                }
+            } else {
+                splitText = `${paidByName} pagou ${e.amount.toFixed(2)}€ (Não entras nesta)`;
+                splitColor = 'var(--text-dim)';
+            }
+
             expensesList.innerHTML += `
-                <div class="expense-item">
-                    <div class="expense-item-left">
-                        <div class="expense-item-cat" style="background:#4a4e6922">🤝</div>
-                        <div>
-                            <div class="expense-item-desc">${e.description}</div>
-                            <div class="expense-item-recurring">${t('js_paid_by')} ${paidByName} (${e.date})</div>
+                <div class="expense-item" style="align-items: flex-start; padding: 16px;">
+                    <div class="expense-item-left" style="flex:1;">
+                        <div class="expense-item-cat" style="background:#4a4e6922; border-radius:12px;">🤝</div>
+                        <div style="flex:1;">
+                            <div class="expense-item-desc" style="font-size:15px; margin-bottom:4px;">${e.description}</div>
+                            <div style="font-size:11px; color:${splitColor}; font-weight:600; margin-bottom:2px;">${splitText}</div>
+                            <div class="expense-item-recurring" style="font-size:11px;">${e.date}</div>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div class="expense-item-amount">${e.amount.toFixed(2)} €</div>
-                        ${(e.paid_by === currentUser.id && !currentGroup.isArchived) ? `<button onclick="deleteGroupExpense(this, '${e.id}')" class="btn-small" style="background:transparent; border:none; font-size:16px;">🗑️</button>` : ''}
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between; gap:10px;">
+                        <div class="expense-item-amount" style="font-size:16px;">${e.amount.toFixed(2)} €</div>
+                        ${(iPaid && !currentGroup.isArchived) ? `<button onclick="deleteGroupExpense(this, '${e.id}')" class="btn-small" style="background:rgba(229,49,112,0.1); color:var(--danger); border:none; padding:4px 8px; border-radius:6px; font-size:12px;">Apagar</button>` : ''}
                     </div>
                 </div>
             `;

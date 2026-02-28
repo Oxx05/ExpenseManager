@@ -763,14 +763,14 @@ select:hover:not(:disabled),
 .chart-bar-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .chart-label {
     font-size: 12px;
     font-weight: 600;
-    min-width: 80px;
+    min-width: 90px;
     display: flex;
     align-items: center;
     gap: 6px;
