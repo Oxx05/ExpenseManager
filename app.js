@@ -1014,7 +1014,7 @@ async function exportExcel() {
 
     // Get month label
     const monthNames = getMonthNames();
-    const monthLabel = `${monthNames[fromDate.getMonth()]}/${fromDate.getFullYear()}`;
+    const monthLabel = `${monthNames[fromDate.getMonth()]} ${fromDate.getFullYear()}`;
 
     // --- Build sheet as array of arrays ---
     const sheetData = [];
