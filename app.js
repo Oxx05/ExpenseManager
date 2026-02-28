@@ -1367,14 +1367,16 @@ async function renderGroupsScreen() {
     const list = document.getElementById('groups-list');
     list.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-dim);">${t('js_loading_groups')}</div>`;
 
-    // Get groups via group_members
+    // Get groups via group_members sorted by join date to determine primary free group
     const { data: members, error } = await supabaseClient
         .from('group_members')
         .select(`
             group_id,
+            joined_at,
             groups ( id, name, created_by )
         `)
-        .eq('user_id', currentUser.id);
+        .eq('user_id', currentUser.id)
+        .order('joined_at', { ascending: true });
 
     if (error || !members || members.length === 0) {
         list.innerHTML = `<div style="text-align:center; padding:20px; border:1px dashed var(--border); border-radius:12px; color:var(--text-dim);">${t('js_no_groups')}</div>`;
@@ -1382,19 +1384,32 @@ async function renderGroupsScreen() {
     }
 
     list.innerHTML = '';
-    members.forEach(m => {
+    members.forEach((m, index) => {
         const g = m.groups;
         const role = g.created_by === currentUser.id ? t('js_creator') : t('js_member');
+
+        // Graceful downgrade: Lock extra groups if user loses PRO status
+        const isLocked = !currentUser.is_pro && index > 0;
+
+        const lockBadge = isLocked ? `<div style="font-size:11px; font-weight:700; background:rgba(229,49,112,0.15); color:var(--danger); padding:4px 8px; border-radius:12px; letter-spacing:0.5px;"><i class="fas fa-lock" style="margin-right:4px;"></i>${t('pro_locked_badge')}</div>` : '';
+        const opacity = isLocked ? 'opacity: 0.5; filter: grayscale(50%);' : '';
+        const clickAction = isLocked ? `showLockedGroupAlert()` : `openGroupDetail('${g.id}', '${g.name}')`;
+
         list.innerHTML += `
-            <div class="group-item" onclick="openGroupDetail('${g.id}', '${g.name}')">
+            <div class="group-item" style="${opacity}" onclick="${clickAction}">
                 <div>
-                    <div class="group-name">${g.name}</div>
+                    <div class="group-name" style="margin-bottom:2px;">${g.name}</div>
                     <div class="group-role">${role}</div>
                 </div>
-                <i class="fas fa-chevron-right" style="color:var(--text-muted);"></i>
+                ${isLocked ? lockBadge : '<i class="fas fa-chevron-right" style="color:var(--text-muted);"></i>'}
             </div>
         `;
     });
+}
+
+window.showLockedGroupAlert = function () {
+    alert(t('pro_locked_group_alert'));
+    showPaywall();
 }
 
 function openGroupDetail(id, name) {
