@@ -701,8 +701,16 @@ async function renderCategories() {
                 const catId = parseInt(input.dataset.catId);
                 const cat = categoriesCache.find(c => c.id === catId);
                 if (cat) {
-                    cat.budget = parseFloat(input.value) || 0;
+                    const val = parseFloat(input.value);
+                    cat.budget = isNaN(val) ? null : val;
                     await db.updateCategory(cat);
+
+                    if (currentUser) {
+                        supabaseClient.from('user_categories').update({ budget: cat.budget })
+                            .eq('user_id', currentUser.id)
+                            .eq('name', cat.name)
+                            .then(() => { });
+                    }
                 }
             }, 500);
         });
@@ -726,9 +734,17 @@ async function addCategory() {
         await db.addCategory({ name, icon, color });
         document.getElementById('new-cat-name').value = '';
         document.getElementById('new-cat-icon').value = '';
+
+        if (currentUser) {
+            supabaseClient.from('user_categories').insert({
+                user_id: currentUser.id,
+                name, icon, color
+            }).then(() => { });
+        }
+
         categoriesCache = await db.getAllCategories();
         renderCategories();
-    } catch { alert('Erro ao adicionar categoria.'); } // Changed from original 'Já existe uma categoria com esse nome.' to a generic error, as specific check is now above.
+    } catch { alert('Erro ao adicionar categoria.'); }
 }
 
 // ============================================
@@ -837,7 +853,7 @@ async function renderSummary() {
             } else if (budgetPct >= 70) {
                 badgeColor = '#f0a500';
             }
-            budgetBadge = `<span style="font-size:10px; color:${badgeColor}; font-weight:700; margin-left:4px;">${badgeLabel} de ${cat.budget}€</span>`;
+            budgetBadge = `<div style="font-size:10px; color:${badgeColor}; font-weight:700; white-space:nowrap;">${badgeLabel} de ${cat.budget}€</div>`;
         }
 
         // Month-over-month per-category delta
@@ -855,7 +871,10 @@ async function renderSummary() {
 
         chartHtml += `
       <div class="chart-bar-row">
-        <div class="chart-label">${cat.icon} ${cat.name} ${budgetBadge}</div>
+        <div class="chart-label" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;">
+            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${cat.icon} ${cat.name}</div>
+            ${budgetBadge}
+        </div>
         <div class="chart-bar-bg">
           <div class="chart-bar-fill" style="width:${pct}%;background:${cat.color}"></div>
         </div>
@@ -1692,7 +1711,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // Unlocked: fill with math
                         input.value = autoAmount.toFixed(2);
 
-                        // MBWay Logic: If this is the LAST unlocked box, it absorbs the remainder 
+                        // MBWay Logic: If this is the LAST unlocked box, it absorbs the remainder
                         // and CANNOT be edited (otherwise the math breaks against the Total fixo).
                         if (unlockedBoxes.length === 1) {
                             input.readOnly = true;
@@ -1803,11 +1822,63 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     }
 });
 
+// ============================================
+// SYNC CATEGORIES WITH SUPABASE
+// ============================================
+
+async function syncCategories() {
+    if (!currentUser) return;
+    try {
+        const { data: supaCats, error } = await supabaseClient.from('user_categories').select('*').eq('user_id', currentUser.id);
+        if (error) {
+            console.warn("Categories sync unavailable or table missing:", error.message);
+            return;
+        }
+
+        const localCats = await db.getAllCategories();
+
+        // 1. Download missing/updated categories from Supabase
+        for (const sc of supaCats) {
+            const existing = localCats.find(lc => lc.name.toLowerCase() === sc.name.toLowerCase());
+            if (!existing) {
+                await db.addCategory({ name: sc.name, icon: sc.icon, color: sc.color, budget: sc.budget });
+            } else if (existing.budget !== sc.budget || existing.icon !== sc.icon || existing.color !== sc.color) {
+                existing.budget = sc.budget;
+                existing.icon = sc.icon;
+                existing.color = sc.color;
+                await db.updateCategory(existing);
+            }
+        }
+
+        // 2. Upload missing local categories to Supabase
+        for (const lc of localCats) {
+            const existing = supaCats.find(sc => sc.name.toLowerCase() === lc.name.toLowerCase());
+            if (!existing) {
+                await supabaseClient.from('user_categories').insert({
+                    user_id: currentUser.id,
+                    name: lc.name,
+                    icon: lc.icon,
+                    color: lc.color,
+                    budget: lc.budget || null
+                });
+            }
+        }
+
+        categoriesCache = await db.getAllCategories();
+        if (document.getElementById('screen-categories') && document.getElementById('screen-categories').classList.contains('active')) {
+            renderCategories();
+        }
+    } catch (e) {
+        console.error('Error syncing categories:', e);
+    }
+}
+
 function updateAuthUI() {
     // Prevent errors if UI is not mounted yet
     if (!document.getElementById('auth-section')) return;
 
     if (currentUser) {
+        syncCategories();
         // Account Tab updates
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('account-logged-in').classList.remove('hidden');

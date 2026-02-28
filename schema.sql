@@ -483,3 +483,19 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- 6. User Custom Categories
+-- =========================================================================
+CREATE TABLE public.user_categories (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null,
+  icon text,
+  color text,
+  budget numeric(10, 2),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  UNIQUE(user_id, name)
+);
+ALTER TABLE public.user_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own categories" ON public.user_categories FOR ALL USING (auth.uid() = user_id);
