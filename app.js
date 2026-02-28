@@ -1292,7 +1292,12 @@ function updateAuthUI() {
                     alert(`${t('js_err_save')} ${error.message}`);
                 } else {
                     document.getElementById('account-name-header').textContent = nameVal || currentUser.email;
-                    document.getElementById('account-avatar').textContent = (nameVal || currentUser.email).charAt(0).toUpperCase();
+
+                    // Only update the initial character if there is no image set
+                    const avatarDiv = document.getElementById('account-avatar');
+                    if (!avatarDiv.style.backgroundImage || avatarDiv.style.backgroundImage === 'none') {
+                        avatarDiv.textContent = (nameVal || currentUser.email).charAt(0).toUpperCase();
+                    }
                 }
 
                 btn.textContent = oldText;
@@ -1407,7 +1412,7 @@ async function loadGroupDetail(groupId) {
     // 1. Load Members
     const { data: members } = await supabaseClient
         .from('group_members')
-        .select('profiles(id, name, email)')
+        .select('profiles(id, name, email, avatar_url)')
         .eq('group_id', groupId);
 
     currentGroupMembers = members || [];
@@ -1417,9 +1422,15 @@ async function loadGroupDetail(groupId) {
     const profileMap = {};
     currentGroupMembers.forEach(m => {
         profileMap[m.profiles.id] = m.profiles;
+
+        // Handle avatar UI (image vs text initial)
+        const hasAvatar = m.profiles.avatar_url;
+        const bgStyle = hasAvatar ? `background-image:url('${m.profiles.avatar_url}'); background-size:cover; background-position:center;` : '';
+        const initialStr = hasAvatar ? '' : (m.profiles.name || m.profiles.email).charAt(0).toUpperCase();
+
         membersList.innerHTML += `
             <div class="member-item">
-                <div class="member-avatar">${(m.profiles.name || m.profiles.email).charAt(0).toUpperCase()}</div>
+                <div class="member-avatar" style="${bgStyle}">${initialStr}</div>
                 <div>
                     <div style="font-size:14px; font-weight:600;">${m.profiles.name || m.profiles.email}</div>
                     <div style="font-size:12px; color:var(--text-dim);">${m.profiles.id === currentUser.id ? t('js_you') : ''}</div>
