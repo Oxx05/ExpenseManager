@@ -563,28 +563,77 @@
 
         <!-- ======= PAYWALL MODAL ======= -->
         <div id="paywall-modal" class="modal-overlay hidden">
-            <div class="modal-card" style="text-align:center; max-width: 400px; padding: 30px 20px;">
-                <h2 style="margin-bottom: 10px; color: var(--primary);" data-i18n="pro_title">Desbloqueia o Premium 🌟
-                </h2>
-                <p style="color: var(--text-dim); margin-bottom: 25px; font-size: 14px;" data-i18n="pro_desc">Passa para
-                    a versão PRO e leva a tua gestão de despesas ao máximo nível.</p>
-                <ul
-                    style="text-align: left; list-style: none; margin-bottom: 30px; padding: 0; font-size: 15px; color: var(--text-color);">
-                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
-                            style="color: var(--success); margin-right: 10px;"></i> <span data-i18n="pro_groups">Grupos
-                            Partilhados Ilimitados</span></li>
-                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
-                            style="color: var(--success); margin-right: 10px;"></i> <span
-                            data-i18n="pro_categories">Categorias Personalizadas Ilimitadas</span></li>
-                    <li style="margin-bottom: 15px;"><i class="fas fa-check-circle"
-                            style="color: var(--success); margin-right: 10px;"></i> <span
-                            data-i18n="pro_export">Exportação Pessoal em Excel</span></li>
-                </ul>
-                <button id="upgrade-btn" class="btn-primary" style="margin-bottom: 15px; width:100%;"
-                    onclick="createCheckoutSession()" data-i18n="btn_upgrade">Fazer Upgrade por 1,99€/mês</button>
-                <div style="font-size: 12px; color: var(--text-dim); cursor: pointer; padding: 10px;"
-                    onclick="document.getElementById('paywall-modal').classList.add('hidden')"
-                    data-i18n="btn_no_thanks">Não, obrigado</div>
+            <div class="modal-card"
+                style="padding: 0; max-width: 420px; overflow: hidden; background: var(--bg-card); border: 1px solid rgba(127, 90, 240, 0.3); box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+                <!-- Header Gradient -->
+                <div
+                    style="background: linear-gradient(135deg, var(--accent), #6c3fd4); padding: 40px 20px 30px; text-align: center; position: relative;">
+                    <div
+                        style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; filter: blur(20px);">
+                    </div>
+                    <div
+                        style="width: 70px; height: 70px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 15px; border: 2px solid rgba(255,255,255,0.4); box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                        🌟
+                    </div>
+                    <h2 style="color: white; font-weight: 800; font-size: 24px; margin-bottom: 5px;"
+                        data-i18n="pro_title">Desbloqueia o Premium</h2>
+                    <div
+                        style="display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; color: white; letter-spacing: 1px; backdrop-filter: blur(5px);">
+                        PRO EDITION</div>
+                </div>
+
+                <!-- Body Features -->
+                <div style="padding: 30px 25px;">
+                    <p style="color: var(--text-dim); text-align: center; margin-bottom: 25px; font-size: 15px; line-height: 1.5;"
+                        data-i18n="pro_desc">Passa para a versão PRO e leva a tua gestão de despesas ao máximo nível.
+                    </p>
+
+                    <ul style="list-style: none; padding: 0; margin-bottom: 35px;">
+                        <li
+                            style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 12px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="width: 36px; height: 36px; border-radius: 50%; background: rgba(44, 182, 125, 0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <span style="font-size: 15px; font-weight: 600; color: white;" data-i18n="pro_groups">Grupos
+                                Partilhados Ilimitados</span>
+                        </li>
+                        <li
+                            style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 12px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="width: 36px; height: 36px; border-radius: 50%; background: rgba(44, 182, 125, 0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+                                <i class="fas fa-tags"></i>
+                            </div>
+                            <span style="font-size: 15px; font-weight: 600; color: white;"
+                                data-i18n="pro_categories">Categorias Personalizadas Ilimitadas</span>
+                        </li>
+                        <li
+                            style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px; background: rgba(255,255,255,0.02); padding: 12px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div
+                                style="width: 36px; height: 36px; border-radius: 50%; background: rgba(44, 182, 125, 0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+                                <i class="fas fa-file-excel"></i>
+                            </div>
+                            <span style="font-size: 15px; font-weight: 600; color: white;"
+                                data-i18n="pro_export">Exportação Pessoal em Excel</span>
+                        </li>
+                    </ul>
+
+                    <button id="upgrade-btn" class="btn-primary"
+                        style="width: 100%; padding: 16px; font-size: 16px; margin-bottom: 15px; box-shadow: 0 8px 25px rgba(127, 90, 240, 0.4); display: flex; align-items: center; justify-content: center; gap: 10px;"
+                        onclick="createCheckoutSession()">
+                        <span data-i18n="btn_upgrade">Fazer Upgrade por 1,99€/mês</span> <i class="fas fa-lock-open"
+                            style="font-size: 14px;"></i>
+                    </button>
+
+                    <div style="text-align: center;">
+                        <button
+                            style="background: none; border: none; font-size: 14px; font-family: inherit; font-weight: 600; color: var(--text-muted); cursor: pointer; padding: 10px 20px; transition: color 0.2s;"
+                            onclick="document.getElementById('paywall-modal').classList.add('hidden')"
+                            onmouseover="this.style.color='var(--text-dim)'"
+                            onmouseout="this.style.color='var(--text-muted)'" data-i18n="btn_no_thanks">Não,
+                            obrigado</button>
+                    </div>
+                </div>
             </div>
         </div>
 
