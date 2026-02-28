@@ -997,8 +997,12 @@ async function exportExcel() {
     // Collect categories
     const catNames = new Set();
     expenses.forEach(e => {
-        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-        catNames.add(cat.name);
+        if (e.isGroupExpense && e.groupName) {
+            catNames.add(e.groupName);
+        } else {
+            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+            catNames.add(cat.name);
+        }
     });
     const categoryList = [...catNames].sort();
 
@@ -1006,9 +1010,15 @@ async function exportExcel() {
     const matrixDaily = {};
     categoryList.forEach(cn => matrixDaily[cn] = {});
     expenses.forEach(e => {
-        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-        if (!matrixDaily[cat.name][e.date]) matrixDaily[cat.name][e.date] = 0;
-        matrixDaily[cat.name][e.date] += e.amount;
+        let catName;
+        if (e.isGroupExpense && e.groupName) {
+            catName = e.groupName;
+        } else {
+            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+            catName = cat.name;
+        }
+        if (!matrixDaily[catName][e.date]) matrixDaily[catName][e.date] = 0;
+        matrixDaily[catName][e.date] += e.amount;
     });
 
     const sheet1Data = [];
@@ -1088,10 +1098,16 @@ async function exportExcel() {
     const matrixMonthly = {};
     categoryList.forEach(cn => matrixMonthly[cn] = {});
     expenses.forEach(e => {
-        const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+        let catName;
+        if (e.isGroupExpense && e.groupName) {
+            catName = e.groupName;
+        } else {
+            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
+            catName = cat.name;
+        }
         const monthKey = e.date.substring(0, 7);
-        if (!matrixMonthly[cat.name][monthKey]) matrixMonthly[cat.name][monthKey] = 0;
-        matrixMonthly[cat.name][monthKey] += e.amount;
+        if (!matrixMonthly[catName][monthKey]) matrixMonthly[catName][monthKey] = 0;
+        matrixMonthly[catName][monthKey] += e.amount;
     });
 
     const sheet2Data = [];
@@ -2260,7 +2276,8 @@ async function fetchGroupExpensesForMonth(year, month) {
         amount: e.expense_splits[0].amount,
         date: e.date,
         categoryId: 'group_expense',
-        isGroupExpense: true
+        isGroupExpense: true,
+        groupName: e.groups.name
     }));
 }
 
@@ -2288,7 +2305,8 @@ async function fetchGroupExpensesForRange(from, to) {
         amount: e.expense_splits[0].amount,
         date: e.date,
         categoryId: 'group_expense',
-        isGroupExpense: true
+        isGroupExpense: true,
+        groupName: e.groups.name
     }));
 }
 
