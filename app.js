@@ -752,35 +752,36 @@ function setupSummaryNav() {
 async function renderSummary() {
     document.getElementById('summary-month-label').textContent = `${getMonthNames()[summaryMonth]} ${summaryYear}`;
 
-    // Include projected recurring and group expenses for full picture
-    const localExpenses = await db.getExpensesWithRecurring(summaryYear, summaryMonth);
-    const groupExpenses = await fetchGroupExpensesForMonth(summaryYear, summaryMonth);
-    const expenses = [...localExpenses, ...groupExpenses];
+    // Parallel fetch: current + previous month data
+    let prevMonth = summaryMonth - 1;
+    let prevYear = summaryYear;
+    if (prevMonth < 0) { prevMonth = 11; prevYear--; }
 
-    categoriesCache = await db.getAllCategories();
+    const [localExpenses, groupExpenses, prevLocalExpenses, prevGroupExpenses, categories] = await Promise.all([
+        db.getExpensesWithRecurring(summaryYear, summaryMonth),
+        fetchGroupExpensesForMonth(summaryYear, summaryMonth),
+        db.getExpensesWithRecurring(prevYear, prevMonth),
+        fetchGroupExpensesForMonth(prevYear, prevMonth),
+        db.getAllCategories()
+    ]);
+
+    const expenses = [...localExpenses, ...groupExpenses];
+    categoriesCache = categories;
     categoriesCache.push({ id: 'group_expense', name: t('js_group_badge'), icon: '👥', color: '#7f5af0' });
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
 
     // --- Month-over-Month Comparison ---
-    let prevMonth = summaryMonth - 1;
-    let prevYear = summaryYear;
-    if (prevMonth < 0) { prevMonth = 11; prevYear--; }
-
-    const prevLocalExpenses = await db.getExpensesWithRecurring(prevYear, prevMonth);
-    const prevGroupExpenses = await fetchGroupExpensesForMonth(prevYear, prevMonth);
     const prevExpenses = [...prevLocalExpenses, ...prevGroupExpenses];
     const prevTotal = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-    // Build previous month by-category
     const prevByCat = {};
     prevExpenses.forEach(e => {
         if (!prevByCat[e.categoryId]) prevByCat[e.categoryId] = 0;
         prevByCat[e.categoryId] += e.amount;
     });
 
-    // Show total comparison badge
     const comparisonEl = document.getElementById('summary-comparison');
     if (comparisonEl) {
         if (prevTotal > 0 && total > 0) {
@@ -807,8 +808,9 @@ async function renderSummary() {
     const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
     const maxAmount = sorted.length > 0 ? sorted[0][1] : 1;
 
+    // --- Build chart HTML as a single string (batch, no reflows) ---
     const chart = document.getElementById('summary-chart');
-    chart.innerHTML = '';
+    let chartHtml = '';
 
     sorted.forEach(([catId, amount]) => {
         const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
@@ -843,7 +845,7 @@ async function renderSummary() {
             }
         }
 
-        chart.innerHTML += `
+        chartHtml += `
       <div class="chart-bar-row">
         <div class="chart-label">${cat.icon} ${cat.name} ${budgetBadge}</div>
         <div class="chart-bar-bg">
@@ -854,81 +856,81 @@ async function renderSummary() {
     `;
     });
 
-    if (sorted.length === 0) {
-        chart.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">Sem despesas neste mês.</p>';
-    }
+    // Single DOM write (no reflows during loop)
+    chart.innerHTML = chartHtml || '<p style="color:var(--text-muted);text-align:center;padding:20px;">Sem despesas neste mês.</p>';
 
-    // --- PRO Charts: Donut + Daily Trend ---
+    // --- PRO Charts: Deferred to next frame for better INP ---
     const donutSection = document.getElementById('summary-donut-section');
     const dailyTrend = document.getElementById('summary-daily-trend');
     const proHint = document.getElementById('summary-pro-hint');
 
     if (currentUser?.is_pro && sorted.length > 0) {
-        // Show PRO charts
         if (donutSection) donutSection.classList.remove('hidden');
         if (dailyTrend) dailyTrend.classList.remove('hidden');
         if (proHint) proHint.classList.add('hidden');
 
-        // --- Donut Chart (SVG) ---
-        const donutContainer = document.getElementById('summary-donut-chart');
-        const legendContainer = document.getElementById('summary-donut-legend');
-        if (donutContainer && legendContainer) {
-            const radius = 50;
-            const circumference = 2 * Math.PI * radius;
-            let offset = 0;
-            let arcs = '';
-            let legendHtml = '';
+        // Defer heavy SVG rendering to next animation frame
+        requestAnimationFrame(() => {
+            // --- Donut Chart (SVG) ---
+            const donutContainer = document.getElementById('summary-donut-chart');
+            const legendContainer = document.getElementById('summary-donut-legend');
+            if (donutContainer && legendContainer) {
+                const radius = 50;
+                const circumference = 2 * Math.PI * radius;
+                let offset = 0;
+                let arcs = '';
+                let legendHtml = '';
 
-            sorted.forEach(([catId, amount]) => {
-                const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
-                const pct = amount / total;
-                const dashLen = pct * circumference;
-                const dashGap = circumference - dashLen;
+                sorted.forEach(([catId, amount]) => {
+                    const cat = categoriesCache.find(c => String(c.id) === String(catId)) || { icon: '💰', name: t('js_others'), color: '#666' };
+                    const pct = amount / total;
+                    const dashLen = pct * circumference;
+                    const dashGap = circumference - dashLen;
 
-                arcs += `<circle cx="70" cy="70" r="${radius}" fill="none" stroke="${cat.color}" stroke-width="20"
-                    stroke-dasharray="${dashLen} ${dashGap}" stroke-dashoffset="${-offset}"
-                    transform="rotate(-90 70 70)" style="transition: all 0.5s ease;" />`;
-                offset += dashLen;
+                    arcs += `<circle cx="70" cy="70" r="${radius}" fill="none" stroke="${cat.color}" stroke-width="20"
+                        stroke-dasharray="${dashLen} ${dashGap}" stroke-dashoffset="${-offset}"
+                        transform="rotate(-90 70 70)" style="transition: all 0.5s ease;" />`;
+                    offset += dashLen;
 
-                legendHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-                    <span style="width:10px;height:10px;border-radius:50%;background:${cat.color};flex-shrink:0;"></span>
-                    <span style="color:var(--text-dim);">${cat.icon} ${cat.name}</span>
-                    <span style="color:var(--text);font-weight:600;margin-left:auto;">${((amount / total) * 100).toFixed(0)}%</span>
-                </div>`;
-            });
+                    legendHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                        <span style="width:10px;height:10px;border-radius:50%;background:${cat.color};flex-shrink:0;"></span>
+                        <span style="color:var(--text-dim);">${cat.icon} ${cat.name}</span>
+                        <span style="color:var(--text);font-weight:600;margin-left:auto;">${((amount / total) * 100).toFixed(0)}%</span>
+                    </div>`;
+                });
 
-            donutContainer.innerHTML = `<svg viewBox="0 0 140 140" style="width:100%;height:100%;">
-                <circle cx="70" cy="70" r="${radius}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20"/>
-                ${arcs}
-                <text x="70" y="70" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="14" font-weight="800">${formatCurrency(total)}</text>
-            </svg>`;
-            legendContainer.innerHTML = legendHtml;
-        }
-
-        // --- Daily Trend (Mini Bar Chart) ---
-        const trendContainer = document.getElementById('daily-trend-bars');
-        if (trendContainer) {
-            const lastDay = new Date(summaryYear, summaryMonth + 1, 0).getDate();
-            const byDay = {};
-            expenses.forEach(e => {
-                const day = parseInt(e.date.split('-')[2]);
-                if (!byDay[day]) byDay[day] = 0;
-                byDay[day] += e.amount;
-            });
-
-            const maxDay = Math.max(...Object.values(byDay), 1);
-            let barsHtml = '';
-            for (let d = 1; d <= lastDay; d++) {
-                const val = byDay[d] || 0;
-                const pct = (val / maxDay) * 100;
-                const barColor = val > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
-                const minH = val > 0 ? Math.max(pct, 5) : 3;
-                barsHtml += `<div title="Dia ${d}: ${val.toFixed(2)} €" style="flex:1;height:${minH}%;background:${barColor};border-radius:3px 3px 0 0;min-width:3px;transition:height 0.3s ease;cursor:pointer;"></div>`;
+                donutContainer.innerHTML = `<svg viewBox="0 0 140 140" style="width:100%;height:100%;">
+                    <circle cx="70" cy="70" r="${radius}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20"/>
+                    ${arcs}
+                    <text x="70" y="70" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="14" font-weight="800">${formatCurrency(total)}</text>
+                </svg>`;
+                legendContainer.innerHTML = legendHtml;
             }
-            trendContainer.innerHTML = barsHtml;
-        }
+
+            // --- Daily Trend (Mini Bar Chart) ---
+            const trendContainer = document.getElementById('daily-trend-bars');
+            if (trendContainer) {
+                const lastDay = new Date(summaryYear, summaryMonth + 1, 0).getDate();
+                const byDay = {};
+                expenses.forEach(e => {
+                    const day = parseInt(e.date.split('-')[2]);
+                    if (!byDay[day]) byDay[day] = 0;
+                    byDay[day] += e.amount;
+                });
+
+                const maxDay = Math.max(...Object.values(byDay), 1);
+                let barsHtml = '';
+                for (let d = 1; d <= lastDay; d++) {
+                    const val = byDay[d] || 0;
+                    const pct = (val / maxDay) * 100;
+                    const barColor = val > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
+                    const minH = val > 0 ? Math.max(pct, 5) : 3;
+                    barsHtml += `<div title="Dia ${d}: ${val.toFixed(2)} €" style="flex:1;height:${minH}%;background:${barColor};border-radius:3px 3px 0 0;min-width:3px;transition:height 0.3s ease;cursor:pointer;"></div>`;
+                }
+                trendContainer.innerHTML = barsHtml;
+            }
+        });
     } else {
-        // Free user: hide charts, show upgrade hint
         if (donutSection) donutSection.classList.add('hidden');
         if (dailyTrend) dailyTrend.classList.add('hidden');
         if (proHint && sorted.length > 0) proHint.classList.remove('hidden');
