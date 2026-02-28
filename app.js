@@ -1091,26 +1091,44 @@ async function exportExcel() {
 
     setButtonLoading(btn, false);
 
-    // Mobile-compatible download using Blob
+    // Mobile-compatible download using multiple strategies
     const filename = `despesas_${from}_${to}.xlsx`;
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
+    // Detect iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    // Method 1: Web Share API (best for mobile — opens native share sheet)
     try {
-        // Method 1: Web Share API (works on mobile)
-        if (navigator.canShare && navigator.canShare({ files: [new File([], 'test.xlsx')] })) {
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const file = new File([blob], filename, { type: blob.type });
+        const file = new File([blob], filename, { type: blob.type });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file], title: 'Despesas' });
             return;
         }
     } catch (e) {
-        // Fall through to standard download
+        // Share was cancelled or failed — fall through
+        if (e.name === 'AbortError') return; // User cancelled share, don't try other methods
     }
 
-    // Method 2: Standard Blob download (desktop + some mobile)
+    // Method 2: iOS Safari — open in new tab (programmatic <a>.click() is blocked)
+    if (isIOS) {
+        try {
+            const url = URL.createObjectURL(blob);
+            const newWindow = window.open(url, '_blank');
+            if (!newWindow) {
+                // Popup blocked — try direct location
+                window.location.href = url;
+            }
+            setTimeout(() => URL.revokeObjectURL(url), 30000);
+            return;
+        } catch (e) {
+            // Fall through to next method
+        }
+    }
+
+    // Method 3: Standard Blob download (Android Chrome, desktop)
     try {
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1121,9 +1139,9 @@ async function exportExcel() {
         setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }, 200);
+        }, 500);
     } catch (e) {
-        // Method 3: fallback
+        // Method 4: XLSX writeFile fallback
         XLSX.writeFile(wb, filename);
     }
 }
