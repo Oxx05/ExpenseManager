@@ -475,9 +475,17 @@
             <div id="account-logged-in" class="hidden" style="padding:20px;">
                 <div
                     style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center;">
-                    <div id="account-avatar"
-                        style="width:64px; height:64px; border-radius:50%; background:var(--accent); color:white; font-size:28px; font-weight:bold; display:flex; align-items:center; justify-content:center; margin:0 auto 15px;">
-                        ?</div>
+                    <div style="position:relative; width:64px; height:64px; margin:0 auto 15px; cursor:pointer;"
+                        onclick="document.getElementById('avatar-upload').click()" title="Alterar Foto de Perfil">
+                        <div id="account-avatar"
+                            style="width:100%; height:100%; border-radius:50%; background:var(--accent); color:white; font-size:28px; font-weight:bold; display:flex; align-items:center; justify-content:center; overflow:hidden; background-size:cover; background-position:center;">
+                            ?</div>
+                        <div
+                            style="position:absolute; bottom:0; right:-5px; background:var(--bg-card); border-radius:50%; padding:4px; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                            <i class="fas fa-camera" style="color:var(--text-dim); font-size:12px;"></i>
+                        </div>
+                    </div>
+                    <input type="file" id="avatar-upload" accept="image/*" class="hidden">
                     <h2 style="margin-bottom:5px;">
                         <span id="account-name-header">Utilizador</span>
                         <span id="pro-badge" class="hidden"

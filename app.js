@@ -1222,20 +1222,31 @@ function updateAuthUI() {
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('account-logged-in').classList.remove('hidden');
 
-        // Obter infos para exibir e preencher formulário
-        supabaseClient.from('profiles').select('name, email, phone').eq('id', currentUser.id).single()
-            .then(({ data }) => {
-                if (data) {
-                    document.getElementById('account-name-header').textContent = data.name || data.email;
-                    document.getElementById('account-email').textContent = data.email;
-                    document.getElementById('account-avatar').textContent = (data.name || data.email).charAt(0).toUpperCase();
+        // Obter infos para exibir e preencher formulário (limite robusto e leitura de avatar)
+        supabaseClient.from('profiles').select('name, email, phone, avatar_url').eq('id', currentUser.id).limit(1)
+            .then(({ data, error }) => {
+                const profile = data && data.length > 0 ? data[0] : null;
+                const displayEmail = profile?.email || currentUser.email;
+                const displayName = profile?.name || displayEmail.split('@')[0];
+                const displayPhone = profile?.phone || '';
 
-                    // Preencher formulário de perfil
-                    const nameInput = document.getElementById('profile-name');
-                    const phoneInput = document.getElementById('profile-phone');
-                    if (nameInput) nameInput.value = data.name || '';
-                    if (phoneInput) phoneInput.value = data.phone || '';
+                document.getElementById('account-name-header').textContent = displayName;
+                document.getElementById('account-email').textContent = displayEmail;
+
+                const avatarDiv = document.getElementById('account-avatar');
+                if (profile?.avatar_url) {
+                    avatarDiv.innerHTML = '';
+                    avatarDiv.style.backgroundImage = `url('${profile.avatar_url}')`;
+                } else {
+                    avatarDiv.innerHTML = displayName.charAt(0).toUpperCase();
+                    avatarDiv.style.backgroundImage = 'none';
                 }
+
+                // Preencher formulário de perfil
+                const nameInput = document.getElementById('profile-name');
+                const phoneInput = document.getElementById('profile-phone');
+                if (nameInput) nameInput.value = profile?.name || '';
+                if (phoneInput) phoneInput.value = displayPhone;
             });
 
         // Obter status PRO
@@ -1286,6 +1297,50 @@ function updateAuthUI() {
 
                 btn.textContent = oldText;
                 btn.disabled = false;
+            });
+        }
+
+        // Configurar o botão de Upload de Avatar
+        const avatarInput = document.getElementById('avatar-upload');
+        if (avatarInput) {
+            const newAvatarInput = avatarInput.cloneNode(true);
+            avatarInput.parentNode.replaceChild(newAvatarInput, avatarInput);
+
+            newAvatarInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const avatarDiv = document.getElementById('account-avatar');
+                const oldContent = avatarDiv.innerHTML;
+                const oldBg = avatarDiv.style.backgroundImage;
+
+                // Loading UI state
+                avatarDiv.style.backgroundImage = 'none';
+                avatarDiv.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 20px;"></i>';
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${currentUser.id}.${fileExt}`;
+
+                try {
+                    // Importante: A DB precisa de ter uma Storage Bucket "avatars" pública ativada
+                    const { error: uploadError } = await supabaseClient.storage.from('avatars').upload(fileName, file, { upsert: true });
+                    if (uploadError) throw uploadError;
+
+                    const { data: publicUrlData } = supabaseClient.storage.from('avatars').getPublicUrl(fileName);
+                    const avatarUrl = publicUrlData.publicUrl + '?t=' + new Date().getTime(); // Forçar refresh da cache do browser
+
+                    const { error: updateError } = await supabaseClient.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+                    if (updateError) throw updateError;
+
+                    avatarDiv.innerHTML = '';
+                    avatarDiv.style.backgroundImage = `url('${avatarUrl}')`;
+
+                } catch (err) {
+                    console.error(err);
+                    alert(`${t('js_err_save')} Imagem de Capa (${err.message})`);
+                    avatarDiv.innerHTML = oldContent;
+                    avatarDiv.style.backgroundImage = oldBg;
+                }
             });
         }
 

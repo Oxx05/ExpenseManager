@@ -406,7 +406,8 @@ body {
 .form-group input[type="number"],
 .form-group input[type="text"],
 .form-group input[type="date"],
-.form-group input[type="email"] {
+.form-group input[type="email"],
+.form-group input[type="tel"] {
     background: var(--bg-input);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
