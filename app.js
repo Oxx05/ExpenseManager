@@ -981,10 +981,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('group-expense-form').reset();
         document.getElementById('group-expense-date').value = new Date().toISOString().slice(0, 10);
 
-        // Populate payers dropdown
+        // Populate payers dropdown from ACTIVE members only
+        const activeMembers = currentGroupMembers.filter(m => m.profiles.is_active);
+
         const payerSelect = document.getElementById('group-expense-payer');
         payerSelect.innerHTML = '';
-        currentGroupMembers.forEach(m => {
+        activeMembers.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.profiles.id;
             opt.textContent = m.profiles.name || m.profiles.email;
@@ -992,10 +994,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             payerSelect.appendChild(opt);
         });
 
-        // Populate splits (MBWay style custom inputs)
+        // Populate splits (MBWay style custom inputs) for ACTIVE members
         const splitsContainer = document.getElementById('group-expense-splits');
         splitsContainer.innerHTML = '';
-        currentGroupMembers.forEach(m => {
+        activeMembers.forEach(m => {
             splitsContainer.innerHTML += `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <label style="display:flex; align-items:center; gap:8px;">
@@ -1424,13 +1426,20 @@ function navigateGroupBack() {
 }
 
 async function loadGroupDetail(groupId) {
-    // 1. Load Members
-    const { data: members } = await supabaseClient
-        .from('group_members')
-        .select('profiles(id, name, email, avatar_url)')
-        .eq('group_id', groupId);
+    // 1. Load Members via RPC for graceful restrictions limit checking
+    const { data: rpcMembers } = await supabaseClient.rpc('get_group_members_status', { p_group_id: groupId });
 
-    currentGroupMembers = members || [];
+    // Map to preserve existing UI compatibility
+    currentGroupMembers = (rpcMembers || []).map(rm => ({
+        profiles: {
+            id: rm.user_id,
+            name: rm.name,
+            email: rm.email,
+            avatar_url: rm.avatar_url,
+            is_active: rm.is_active
+        }
+    }));
+
     const membersList = document.getElementById('group-members-list');
     membersList.innerHTML = '';
 
@@ -1443,11 +1452,14 @@ async function loadGroupDetail(groupId) {
         const bgStyle = hasAvatar ? `background-image:url('${m.profiles.avatar_url}'); background-size:cover; background-position:center;` : '';
         const initialStr = hasAvatar ? '' : (m.profiles.name || m.profiles.email).charAt(0).toUpperCase();
 
+        const lockedBadge = !m.profiles.is_active ? `<span style="margin-left:8px; font-size:10px; background:var(--danger); color:white; padding:2px 6px; border-radius:8px;">${t('pro_locked_badge')}</span>` : '';
+        const opacityStyle = !m.profiles.is_active ? 'opacity:0.5;' : '';
+
         membersList.innerHTML += `
-            <div class="member-item">
+            <div class="member-item" style="${opacityStyle}">
                 <div class="member-avatar" style="${bgStyle}">${initialStr}</div>
                 <div>
-                    <div style="font-size:14px; font-weight:600;">${m.profiles.name || m.profiles.email}</div>
+                    <div style="font-size:14px; font-weight:600;">${m.profiles.name || m.profiles.email} ${lockedBadge}</div>
                     <div style="font-size:12px; color:var(--text-dim);">${m.profiles.id === currentUser.id ? t('js_you') : ''}</div>
                 </div>
             </div>

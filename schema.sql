@@ -324,3 +324,40 @@ CREATE POLICY "Users can update their own avatar."
 ON storage.objects FOR UPDATE USING (
   bucket_id = 'avatars' AND auth.role() = 'authenticated' AND (storage.foldername(name))[1] = auth.uid()::text
 );
+
+-- =========================================================================
+-- FUNÇÃO RPC PARA OBTER MEMBROS DO GRUPO COM STATUS DE ACESSO (GRATUITO VS PRO)
+-- Permite ao Frontend saber quem está "bloqueado" de dividir despesas noutros grupos
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.get_group_members_status(p_group_id uuid)
+RETURNS TABLE (
+  user_id uuid,
+  name text,
+  email text,
+  avatar_url text,
+  is_active boolean
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    p.id AS user_id,
+    p.name,
+    p.email,
+    p.avatar_url,
+    (
+      -- O membro está ativo se tiver subscrição PRO
+      COALESCE((SELECT is_pro FROM public.subscriptions s WHERE s.user_id = p.id), false)
+      OR 
+      -- OU se este grupo for o PRIMEIRO grupo a que pertenceu cronologicamente (Grupo Grátis)
+      p_group_id = (
+        SELECT gm2.group_id FROM public.group_members gm2 
+        WHERE gm2.user_id = p.id 
+        ORDER BY gm2.joined_at ASC 
+        LIMIT 1
+      )
+    ) AS is_active
+  FROM public.group_members gm
+  JOIN public.profiles p ON gm.user_id = p.id
+  WHERE gm.group_id = p_group_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
