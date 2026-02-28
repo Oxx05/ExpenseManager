@@ -159,8 +159,11 @@ const translations = {
         "js_invite_share_title": "Junta-te a mim no Despesas!",
         "js_invite_share_text": "Criei um grupo partilhado e preciso que entres.",
         "btn_archive_group": "Arquivar Grupo",
+        "btn_unarchive_group": "Desarquivar",
         "group_archived_banner": "GRUPO ARQUIVADO (Apenas Leitura)",
-        "js_confirm_archive_group": "Tens a certeza que queres arquivar este grupo? Ficará apenas de leitura."
+        "js_confirm_archive_group": "Tens a certeza que queres arquivar este grupo? Ficará apenas de leitura.",
+        "js_confirm_unarchive_group": "Tens a certeza que queres reativar este grupo?",
+        "js_err_unarchive_limit": "Atingiste o limite da conta Free. Já tens um grupo Ativo. Transforma-o em Arquivo primeiro ou faz Upgrade para Premium."
     },
     en: {
         // App
@@ -322,8 +325,11 @@ const translations = {
         "js_invite_share_title": "Join me on Expenses!",
         "js_invite_share_text": "I created a shared group and need you to join.",
         "btn_archive_group": "Archive Group",
+        "btn_unarchive_group": "Unarchive",
         "group_archived_banner": "ARCHIVED GROUP (Read-Only)",
-        "js_confirm_archive_group": "Are you sure you want to archive this group? It will become read-only."
+        "js_confirm_archive_group": "Are you sure you want to archive this group? It will become read-only.",
+        "js_confirm_unarchive_group": "Are you sure you want to reactivate this group?",
+        "js_err_unarchive_limit": "Free tier limit reached. You already have an Active group. Archive it first or Upgrade to Premium."
     }
 };
 

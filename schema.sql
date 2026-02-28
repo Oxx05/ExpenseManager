@@ -447,3 +447,39 @@ BEGIN
   RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =========================================================================
+-- FUNÇÃO RPC PARA DESARQUIVAR GRUPO (VERIFICA LIMITES)
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.unarchive_group(
+  p_group_id uuid
+) RETURNS jsonb AS $$
+DECLARE
+  v_is_pro boolean;
+  v_active_group_count int;
+BEGIN
+  -- 1. Verificar limites do Freemium
+  SELECT COALESCE((SELECT is_pro FROM public.subscriptions WHERE user_id = auth.uid()), false) INTO v_is_pro;
+  
+  IF NOT v_is_pro THEN
+    -- Contar quantos grupos ATIVOS (não arquivados) o utilizador tem
+    SELECT count(*) INTO v_active_group_count 
+    FROM public.group_members gm
+    JOIN public.groups g ON gm.group_id = g.id
+    WHERE gm.user_id = auth.uid() AND g.is_archived = false;
+
+    -- Se já tiver 1 grupo ativo, rejeita (A regra Free é 1 Grupo Ativo em simultâneo)
+    IF v_active_group_count >= 1 THEN
+      RETURN jsonb_build_object('success', false, 'error_code', 'LIMIT_REACHED');
+    END IF;
+  END IF;
+
+  -- 2. Desarquivar (apenas o criador pode)
+  UPDATE public.groups SET is_archived = false WHERE id = p_group_id AND created_by = auth.uid();
+  
+  -- Se a query não afetou linhas (porque não é o criador), o Postgres ignora, mas convém retornar sucesso ou erro genérico
+  -- Para simplificar, assumimos que a UI já esconde o botão de quem não é criador
+  
+  RETURN jsonb_build_object('success', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

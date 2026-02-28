@@ -1007,6 +1007,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderGroupsScreen();
     });
 
+    // Unarchive Group
+    document.getElementById('unarchive-group-btn').addEventListener('click', async () => {
+        if (!currentGroup) return;
+        if (!confirm(t('js_confirm_unarchive_group'))) return;
+
+        const btn = document.getElementById('unarchive-group-btn');
+        btn.disabled = true;
+
+        const { data, error } = await supabaseClient.rpc('unarchive_group', {
+            p_group_id: currentGroup.id
+        });
+
+        btn.disabled = false;
+
+        if (error) {
+            alert(t('js_error') + " " + error.message);
+            return;
+        }
+
+        if (data.success) {
+            navigateGroupBack();
+            renderGroupsScreen();
+        } else if (data.error_code === 'LIMIT_REACHED') {
+            alert(t('js_err_unarchive_limit'));
+            showPaywall();
+        }
+    });
+
     // Leave Group
     document.getElementById('leave-group-btn').addEventListener('click', async () => {
         if (!currentGroup) return;
@@ -1644,19 +1672,28 @@ async function loadGroupDetail(groupId) {
     const fabAdd = document.getElementById('group-fab-add');
     const inviteContainer = document.getElementById('invite-container');
     const archiveBtn = document.getElementById('archive-group-btn');
+    const unarchiveBtn = document.getElementById('unarchive-group-btn');
     const leaveBtn = document.getElementById('leave-group-btn');
 
-    if (banner && fabAdd && archiveBtn && leaveBtn) {
+    if (banner && fabAdd && archiveBtn && unarchiveBtn && leaveBtn) {
         if (isArchived) {
             banner.classList.remove('hidden');
             fabAdd.classList.add('hidden');
             if (inviteContainer) inviteContainer.classList.add('hidden');
-            archiveBtn.classList.add('hidden');
             leaveBtn.classList.add('hidden');
+
+            if (isOwner) {
+                archiveBtn.classList.add('hidden');
+                unarchiveBtn.classList.remove('hidden');
+            } else {
+                archiveBtn.classList.add('hidden');
+                unarchiveBtn.classList.add('hidden');
+            }
         } else {
             banner.classList.add('hidden');
             fabAdd.classList.remove('hidden');
             if (inviteContainer) inviteContainer.classList.remove('hidden');
+            unarchiveBtn.classList.add('hidden');
 
             if (isOwner) {
                 archiveBtn.classList.remove('hidden');
