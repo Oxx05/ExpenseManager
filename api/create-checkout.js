@@ -27,7 +27,7 @@ export default async function handler(req, res) {
             customer_email: email,
             line_items: [
                 {
-                    price: 'price_1T5XvB0vGOL8jibyXA9mkzXg', // Gestor de Despesas PRO
+                    price: 'price_1T6FvwCnM4wZXaMWsz4HUgGj', // Gestor de Despesas PRO (New Account)
                     quantity: 1,
                 },
             ],
