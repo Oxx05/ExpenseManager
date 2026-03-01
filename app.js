@@ -597,16 +597,12 @@ function setupDeleteModal() {
         if (editingExpense?.id) {
             await db.deleteExpense(editingExpense.id);
             syncExpenses();
-            // Refresh UI
-            if (document.getElementById('screen-calendar').classList.contains('active')) {
-                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
-                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
-                else document.getElementById('day-detail').classList.add('hidden');
-                renderCalendar();
-            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+            closeDayDetail();
+            renderCalendar();
+            if (document.getElementById('screen-categories').classList.contains('active')) {
                 renderCategories();
             }
+            navigateTo('calendar');
         }
         document.getElementById('delete-modal').classList.add('hidden');
     });
@@ -615,16 +611,12 @@ function setupDeleteModal() {
             const parentId = editingExpense.parentId || editingExpense.id;
             await db.deleteRecurringAndChildren(parentId, editingExpense.date);
             syncExpenses();
-            // Refresh UI
-            if (document.getElementById('screen-calendar').classList.contains('active')) {
-                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
-                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
-                else document.getElementById('day-detail').classList.add('hidden');
-                renderCalendar();
-            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+            closeDayDetail();
+            renderCalendar();
+            if (document.getElementById('screen-categories').classList.contains('active')) {
                 renderCategories();
             }
+            navigateTo('calendar');
         }
         document.getElementById('delete-modal').classList.add('hidden');
     });
@@ -634,9 +626,12 @@ function setupDeleteModal() {
             await db.deleteRecurringAndChildren(parentId);
             syncExpenses();
             // Refresh UI
-            document.getElementById('day-detail').classList.add('hidden');
-            if (document.getElementById('screen-calendar').classList.contains('active')) renderCalendar();
-            else if (document.getElementById('screen-categories').classList.contains('active')) renderCategories();
+            closeDayDetail();
+            renderCalendar();
+            if (document.getElementById('screen-categories').classList.contains('active')) {
+                renderCategories();
+            }
+            navigateTo('calendar');
         }
         document.getElementById('delete-modal').classList.add('hidden');
     });
@@ -662,14 +657,9 @@ function handleDelete() {
         showConfirm(t('delete_expense_title'), t('js_confirm_delete'), async () => {
             await db.deleteExpense(editingExpense.id);
             syncExpenses();
-            // Refresh UI
-            if (document.getElementById('screen-calendar').classList.contains('active')) {
-                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
-                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
-                else document.getElementById('day-detail').classList.add('hidden');
-                renderCalendar();
-            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+            closeDayDetail();
+            renderCalendar();
+            if (document.getElementById('screen-categories').classList.contains('active')) {
                 renderCategories();
             }
             navigateTo('calendar');
@@ -2185,7 +2175,9 @@ async function cleanUpSyncDuplicates() {
 
     return new Promise((resolve) => {
         tx.oncomplete = () => {
-            console.log(`Cleaned up ${toDelete.length} duplicates.`);
+            if (toDelete.length > 0) {
+                console.log(`Cleaned up ${toDelete.length} duplicates.`);
+            }
             resolve();
         };
     });

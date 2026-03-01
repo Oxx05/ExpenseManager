@@ -108,12 +108,13 @@ class ExpenseDB {
      * As projeções têm isProjected=true e parentId apontando para a despesa original.
      */
     async getExpensesWithRecurring(year, month) {
-        const all = await this.getAllExpenses();
+        const all = await this.getAllExpenses(); // Active ones
+        const tombstones = await this.getRawExpenses(); // Includes deleted
         const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
         const lastDay = new Date(year, month + 1, 0).getDate();
         const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-        // Start with real expenses in this month
+        // Start with real active expenses in this month
         const result = all.filter(e => e.date >= from && e.date <= to);
 
         // Add projections from recurring expenses
@@ -130,10 +131,10 @@ class ExpenseDB {
                 const dateStr = current.toISOString().slice(0, 10);
 
                 if (dateStr >= from && dateStr <= to && dateStr !== expense.date) {
-                    // Check if a real entry already exists for this date
-                    const exists = result.some(e =>
+                    // Check if a real entry (active OR deleted) already exists for this date
+                    const exists = tombstones.some(e =>
                         e.date === dateStr &&
-                        (e.parentId === expense.id || e.id === expense.id || (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id === expense.cloud_id))
+                        (e.parentId == expense.id || e.id == expense.id || (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id == expense.cloud_id))
                     );
 
                     if (!exists) {
@@ -164,16 +165,36 @@ class ExpenseDB {
      * @param {number} parentId - ID da despesa recorrente mãe ou qualquer filha
      * @param {string} fromDate - Data (YYYY-MM-DD) para apagar apenas a partir dessa data. Se null, apaga tudo.
      */
-    async deleteRecurringAndChildren(parentId, fromDate = null) {
-        const all = await this.getRawExpenses(); // Get EVERYTHING including tombstones to be sure
-        const parent = all.find(e => e.id === parentId) || {};
+    async deleteRecurringAndChildren(id, fromDate = null) {
+        const all = await this.getRawExpenses();
+        let target = all.find(e => e.id === id);
+        if (!target) return;
+
+        // resolve the ACTUAL parent (master)
+        let masterId = target.id;
+        let cloudMasterId = target.cloud_id;
+
+        if (target.parentId || target.cloud_parent_id) {
+            const master = all.find(e =>
+                (target.parentId && e.id == target.parentId) ||
+                (target.cloud_parent_id && e.cloud_id == target.cloud_parent_id)
+            );
+            if (master) {
+                masterId = master.id;
+                cloudMasterId = master.cloud_id;
+            } else {
+                // if master not found offline, use the foreign keys we have
+                masterId = target.parentId;
+                cloudMasterId = target.cloud_parent_id;
+            }
+        }
+
         let toDelete = all.filter(e =>
-            e.id === parentId ||
-            e.parentId === parentId ||
-            (e.cloud_parent_id && parent.cloud_id && e.cloud_parent_id === parent.cloud_id)
+            e.id == masterId ||
+            e.parentId == masterId ||
+            (cloudMasterId && (e.cloud_id == cloudMasterId || e.cloud_parent_id == cloudMasterId))
         );
 
-        // If fromDate is provided, only delete from that date onwards
         if (fromDate) {
             toDelete = toDelete.filter(e => e.date >= fromDate);
         }
