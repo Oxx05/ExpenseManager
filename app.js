@@ -538,6 +538,7 @@ async function saveExpense(e) {
 
     if (isRecurring) await db.processRecurring();
     setButtonLoading(btn, false);
+    syncExpenses();
     navigateTo('calendar');
 }
 
@@ -583,6 +584,7 @@ function setupDeleteModal() {
     document.getElementById('delete-one-btn').addEventListener('click', async () => {
         if (editingExpense?.id) {
             await db.deleteExpense(editingExpense.id);
+            syncExpenses();
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -592,6 +594,7 @@ function setupDeleteModal() {
             const parentId = editingExpense.parentId || editingExpense.id;
             // Delete from this date onwards
             await db.deleteRecurringAndChildren(parentId, editingExpense.date);
+            syncExpenses();
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -601,6 +604,7 @@ function setupDeleteModal() {
             const parentId = editingExpense.parentId || editingExpense.id;
             // Delete all (no date limit)
             await db.deleteRecurringAndChildren(parentId);
+            syncExpenses();
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -625,7 +629,10 @@ function handleDelete() {
         modal.classList.remove('hidden');
     } else {
         if (confirm('Eliminar esta despesa?')) {
-            db.deleteExpense(editingExpense.id).then(() => navigateTo('calendar'));
+            db.deleteExpense(editingExpense.id).then(() => {
+                syncExpenses();
+                navigateTo('calendar');
+            });
         }
     }
 }
@@ -764,6 +771,7 @@ async function renderCategories() {
                     e.stopPropagation();
                     if (confirm('Pretende eliminar esta despesa recorrente e todas as suas projecções futuras?')) {
                         await db.deleteRecurringAndChildren(expense.id);
+                        syncExpenses();
                         renderCategories();
                         renderCalendar();
                     }
@@ -1934,12 +1942,128 @@ async function syncCategories() {
     }
 }
 
+// ============================================
+// SYNC EXPENSES WITH SUPABASE
+// ============================================
+
+async function syncExpenses() {
+    if (!currentUser) return;
+    try {
+        const { data: supaExpenses, error } = await supabaseClient.from('user_expenses').select('*').eq('user_id', currentUser.id);
+        if (error) {
+            console.warn("Expenses sync unavailable or table missing:", error.message);
+            return;
+        }
+
+        const localExpenses = await db.getRawExpenses();
+
+        // 1. Process cloud -> local
+        for (const se of supaExpenses) {
+            const localMatch = localExpenses.find(le => le.cloud_id === se.id || (le.id === se.local_id && !le.cloud_id));
+            if (!localMatch) {
+                // Download new cloud expense
+                await db.addExpense({
+                    amount: se.amount,
+                    description: se.description,
+                    categoryId: se.category_id,
+                    date: se.date,
+                    isRecurring: se.is_recurring,
+                    recurringType: se.recurring_type,
+                    recurringParams: se.recurring_params,
+                    cloud_id: se.id,
+                    updated_at: se.updated_at
+                });
+            } else {
+                // Determine which is newer
+                const cloudTime = new Date(se.updated_at).getTime();
+                const localTime = new Date(localMatch.updated_at).getTime();
+
+                if (cloudTime > localTime) {
+                    // Update local with cloud data
+                    await db.updateExpense({
+                        ...localMatch,
+                        amount: se.amount,
+                        description: se.description,
+                        categoryId: se.category_id,
+                        date: se.date,
+                        isRecurring: se.is_recurring,
+                        recurringType: se.recurring_type,
+                        recurringParams: se.recurring_params,
+                        cloud_id: se.id,
+                        updated_at: se.updated_at
+                    });
+                }
+            }
+        }
+
+        // 2. Process local -> cloud
+        // Re-fetch local expenses to ensure we have updated cloud_ids
+        const upToDateLocal = await db.getRawExpenses();
+        for (const le of upToDateLocal) {
+            const cloudMatch = supaExpenses.find(se => se.id === le.cloud_id);
+
+            if (!le.cloud_id && !le.is_deleted) {
+                // Upload new local expense
+                const { data, error: insertErr } = await supabaseClient.from('user_expenses').insert({
+                    user_id: currentUser.id,
+                    local_id: le.id,
+                    amount: le.amount,
+                    description: le.description,
+                    category_id: String(le.categoryId),
+                    date: le.date,
+                    is_recurring: le.isRecurring || false,
+                    recurring_type: le.recurringType || 'none',
+                    recurring_params: le.recurringParams || null,
+                    updated_at: le.updated_at
+                }).select().single();
+
+                if (!insertErr && data) {
+                    le.cloud_id = data.id;
+                    await db.updateExpense(le); // save the new cloud_id locally
+                }
+            } else if (le.cloud_id) {
+                // It exists in cloud, check if local is newer or deleted
+                const cloudTime = cloudMatch ? new Date(cloudMatch.updated_at).getTime() : 0;
+                const localTime = new Date(le.updated_at).getTime();
+
+                if (le.is_deleted) {
+                    // Delete from cloud
+                    await supabaseClient.from('user_expenses').delete().eq('id', le.cloud_id);
+                    // We can also fully delete it locally now to save space, but keeping the tombstone is safer
+                    const tx = db.db.transaction('expenses', 'readwrite');
+                    tx.objectStore('expenses').delete(le.id);
+                } else if (localTime > cloudTime && cloudMatch) {
+                    // Update cloud
+                    await supabaseClient.from('user_expenses').update({
+                        amount: le.amount,
+                        description: le.description,
+                        category_id: String(le.categoryId),
+                        date: le.date,
+                        is_recurring: le.isRecurring || false,
+                        recurring_type: le.recurringType || 'none',
+                        recurring_params: le.recurringParams || null,
+                        updated_at: le.updated_at
+                    }).eq('id', le.cloud_id);
+                }
+            }
+        }
+
+        // Re-render if necessary
+        if (document.getElementById('screen-calendar') && document.getElementById('screen-calendar').classList.contains('active')) {
+            renderCalendar();
+        }
+    } catch (e) {
+        console.error('Error syncing expenses:', e);
+    }
+}
+
 function updateAuthUI() {
     // Prevent errors if UI is not mounted yet
     if (!document.getElementById('auth-section')) return;
 
     if (currentUser) {
         syncCategories();
+        syncExpenses();
         // Account Tab updates
         document.getElementById('auth-section').classList.add('hidden');
         document.getElementById('account-logged-in').classList.remove('hidden');

@@ -499,3 +499,23 @@ CREATE TABLE public.user_categories (
 );
 ALTER TABLE public.user_categories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage their own categories" ON public.user_categories FOR ALL USING (auth.uid() = user_id);
+
+-- =========================================================================
+-- 7. User Personal Expenses (Sync)
+-- =========================================================================
+CREATE TABLE public.user_expenses (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  local_id integer,
+  amount numeric(10, 2) not null,
+  description text not null,
+  category_id text not null,
+  date date not null,
+  is_recurring boolean default false,
+  recurring_type text,
+  recurring_params jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+ALTER TABLE public.user_expenses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage their own expenses" ON public.user_expenses FOR ALL USING (auth.uid() = user_id);

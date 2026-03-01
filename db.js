@@ -67,10 +67,29 @@ class ExpenseDB {
     async getCategory(id) { return this._tx('categories', 'readonly', s => s.get(id)); }
 
     // --- Despesas ---
-    async addExpense(e) { return this._tx('expenses', 'readwrite', s => s.add(e)); }
-    async updateExpense(e) { return this._tx('expenses', 'readwrite', s => s.put(e)); }
-    async deleteExpense(id) { return this._tx('expenses', 'readwrite', s => s.delete(id)); }
-    async getAllExpenses() { return this._tx('expenses', 'readonly', s => s.getAll()); }
+    async addExpense(e) {
+        e.updated_at = e.updated_at || new Date().toISOString();
+        return this._tx('expenses', 'readwrite', s => s.add(e));
+    }
+    async updateExpense(e) {
+        e.updated_at = e.updated_at || new Date().toISOString();
+        return this._tx('expenses', 'readwrite', s => s.put(e));
+    }
+    async deleteExpense(id) {
+        const e = await this._tx('expenses', 'readonly', s => s.get(id));
+        if (e) {
+            e.is_deleted = true;
+            e.updated_at = new Date().toISOString(); // always force new timestamp on delete
+            return this.updateExpense(e);
+        }
+    }
+    async getRawExpenses() {
+        return this._tx('expenses', 'readonly', s => s.getAll());
+    }
+    async getAllExpenses() {
+        const all = await this.getRawExpenses();
+        return all.filter(e => !e.is_deleted);
+    }
 
     async getExpensesByDateRange(from, to) {
         const all = await this.getAllExpenses();
