@@ -1949,6 +1949,7 @@ async function syncCategories() {
 async function syncExpenses() {
     if (!currentUser) return;
     try {
+        await cleanUpSyncDuplicates();
         const { data: supaExpenses, error } = await supabaseClient.from('user_expenses').select('*').eq('user_id', currentUser.id);
         if (error) {
             console.warn("Expenses sync unavailable or table missing:", error.message);
@@ -1959,7 +1960,12 @@ async function syncExpenses() {
 
         // 1. Process cloud -> local
         for (const se of supaExpenses) {
-            const localMatch = localExpenses.find(le => le.cloud_id === se.id || (le.id === se.local_id && !le.cloud_id));
+            // Match by cloud_id OR (description, amount, date) if cloud_id is missing locally
+            const localMatch = localExpenses.find(le =>
+                le.cloud_id === se.id ||
+                (le.description === se.description && le.amount === se.amount && le.date === se.date && !le.cloud_id)
+            );
+
             if (!localMatch) {
                 // Download new cloud expense
                 await db.addExpense({
@@ -1999,12 +2005,34 @@ async function syncExpenses() {
         }
 
         // 2. Process local -> cloud
-        // Re-fetch local expenses to ensure we have updated cloud_ids
-        const upToDateLocal = await db.getRawExpenses();
-        for (const le of upToDateLocal) {
+        // Re-fetch local expenses to ensure we have updated cloud_ids and resolve parents
+        let upToDateLocal = await db.getRawExpenses();
+        for (let le of upToDateLocal) {
+            // If it's a child but cloud_parent_id is missing, try to resolve from current local state
+            if (le.parentId && !le.cloud_parent_id) {
+                const parent = upToDateLocal.find(p => p.id === le.parentId);
+                if (parent && parent.cloud_id) {
+                    le.cloud_parent_id = parent.cloud_id;
+                    await db.updateExpense(le);
+                }
+            }
+
             const cloudMatch = supaExpenses.find(se => se.id === le.cloud_id);
 
             if (!le.cloud_id && !le.is_deleted) {
+                // Final check: did someone else upload this identical expense while we were offline?
+                const duplicateInCloud = supaExpenses.find(se =>
+                    se.description === le.description &&
+                    se.amount === le.amount &&
+                    se.date === le.date
+                );
+
+                if (duplicateInCloud) {
+                    le.cloud_id = duplicateInCloud.id;
+                    await db.updateExpense(le);
+                    continue;
+                }
+
                 // Upload new local expense
                 const { data, error: insertErr } = await supabaseClient.from('user_expenses').insert({
                     user_id: currentUser.id,
@@ -2033,7 +2061,7 @@ async function syncExpenses() {
                     // Delete from cloud
                     const { error: delErr } = await supabaseClient.from('user_expenses').delete().eq('id', le.cloud_id);
                     if (!delErr) {
-                        // We can also fully delete it locally now to save space, but keeping the tombstone is safer
+                        // Purge local tombstone
                         const tx = db.db.transaction('expenses', 'readwrite');
                         tx.objectStore('expenses').delete(le.id);
                     }
@@ -2061,6 +2089,46 @@ async function syncExpenses() {
     } catch (e) {
         console.error('Error syncing expenses:', e);
     }
+}
+
+/**
+ * Utility to merge local duplicates (same date, amount, description) 
+ * that might have occurred during initial sync rollout.
+ */
+async function cleanUpSyncDuplicates() {
+    const raw = await db.getRawExpenses();
+    const seen = new Map();
+    const toDelete = [];
+
+    raw.forEach(e => {
+        if (e.is_deleted) return;
+        const key = `${e.date}|${e.amount}|${e.description}`;
+        if (seen.has(key)) {
+            const existing = seen.get(key);
+            // If one has group info or cloud_id, favor that one
+            if (!existing.cloud_id && e.cloud_id) {
+                toDelete.push(existing.id);
+                seen.set(key, e);
+            } else {
+                toDelete.push(e.id);
+            }
+        } else {
+            seen.set(key, e);
+        }
+    });
+
+    const tx = db.db.transaction('expenses', 'readwrite');
+    const store = tx.objectStore('expenses');
+    for (const id of toDelete) {
+        store.delete(id);
+    }
+
+    return new Promise((resolve) => {
+        tx.oncomplete = () => {
+            console.log(`Cleaned up ${toDelete.length} duplicates.`);
+            resolve();
+        };
+    });
 }
 
 function updateAuthUI() {
