@@ -981,8 +981,11 @@ async function renderSummary() {
     categoriesCache = categories;
 
     // Only count expenses up to today (future recurring should not count)
-    const today = new Date().toISOString().slice(0, 10);
-    const expenses = allExpenses.filter(e => e.date <= today);
+    // Use local date to avoid UTC mismatch near midnight
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isCurrentMonth = (summaryYear === now.getFullYear() && summaryMonth === now.getMonth());
+    const expenses = isCurrentMonth ? allExpenses.filter(e => e.date <= today) : allExpenses;
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
@@ -2343,7 +2346,7 @@ function updateAuthUI() {
             });
 
         // Obter status PRO + subscription details
-        supabaseClient.from('subscriptions').select('is_pro, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).single()
+        supabaseClient.from('subscriptions').select('is_pro, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).maybeSingle()
             .then(({ data }) => {
                 currentUser.is_pro = data?.is_pro || false;
                 const badge = document.getElementById('pro-badge');
@@ -2355,18 +2358,24 @@ function updateAuthUI() {
                 // Render subscription section
                 const subSection = document.getElementById('subscription-section');
                 if (subSection) {
-                    if (currentUser.is_pro && data) {
-                        const endDate = data.current_period_end ? new Date(data.current_period_end).toLocaleDateString() : '—';
-                        const isCancelling = data.cancel_at_period_end;
+                    if (currentUser.is_pro) {
+                        const endDate = data?.current_period_end ? new Date(data.current_period_end).toLocaleDateString() : null;
+                        const isCancelling = data?.cancel_at_period_end;
+                        let statusHtml = '';
+                        if (endDate) {
+                            statusHtml = `<span style="font-size:12px; color:${isCancelling ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">
+                                ${isCancelling ? t('subscription_cancels_on') + ' ' + endDate : t('subscription_active_until') + ' ' + endDate}
+                            </span>`;
+                        } else {
+                            statusHtml = `<span style="font-size:12px; color:var(--success); font-weight:600;">✓</span>`;
+                        }
                         subSection.innerHTML = `
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                                     <span style="font-weight:700; color:var(--text);">🌟 ${t('plan_pro')}</span>
-                                    <span style="font-size:12px; color:${isCancelling ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">
-                                        ${isCancelling ? t('subscription_cancels_on') + ' ' + endDate : t('subscription_active_until') + ' ' + endDate}
-                                    </span>
+                                    ${statusHtml}
                                 </div>
-                                ${!isCancelling ? `<button id="cancel-subscription-btn" class="btn-small" style="width:100%; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); padding:10px; border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
+                                ${(!isCancelling && endDate) ? `<button id="cancel-subscription-btn" class="btn-small" style="width:100%; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); padding:10px; border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
                             </div>
                         `;
 

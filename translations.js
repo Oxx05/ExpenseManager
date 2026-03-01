@@ -199,6 +199,7 @@ const translations = {
         "js_monthly": "Mensal",
         "js_yearly": "Anual",
         "no_recurring": "Não existem despesas recorrentes ativas.",
+        "active_recurring": "Recorrentes Ativas",
         // Sign out
         "confirm_signout_title": "Sair da Conta",
         "confirm_signout_text": "Tens a certeza que queres sair da conta?",
@@ -420,6 +421,7 @@ const translations = {
         "js_monthly": "Monthly",
         "js_yearly": "Yearly",
         "no_recurring": "No active recurring expenses.",
+        "active_recurring": "Active Recurring",
         // Sign out
         "confirm_signout_title": "Sign Out",
         "confirm_signout_text": "Are you sure you want to sign out?",
