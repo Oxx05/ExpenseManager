@@ -192,7 +192,33 @@ const translations = {
         "onboarding_3_desc": "Partilha despesas com amigos e família. Divide contas automaticamente e vê quem deve o quê.",
         "btn_next": "Seguinte",
         "btn_skip": "Saltar tutorial",
-        "btn_start": "Começar! 🚀"
+        "btn_start": "Começar! 🚀",
+        // Recurring display
+        "js_daily": "Diário",
+        "js_weekly": "Semanal",
+        "js_monthly": "Mensal",
+        "js_yearly": "Anual",
+        "no_recurring": "Não existem despesas recorrentes ativas.",
+        // Sign out
+        "confirm_signout_title": "Sair da Conta",
+        "confirm_signout_text": "Tens a certeza que queres sair da conta?",
+        // Profile
+        "js_saving_profile": "A guardar...",
+        "js_profile_saved": "Perfil guardado!",
+        "js_no_changes": "Sem alterações",
+        // Category editing
+        "edit_category_title": "Editar Categoria",
+        "js_edit_cat": "Editar",
+        // Subscription
+        "subscription_title": "Subscrição",
+        "plan_free": "Plano Gratuito",
+        "plan_pro": "Plano Premium",
+        "subscription_active_until": "Ativo até",
+        "subscription_cancels_on": "Cancela a",
+        "btn_manage_subscription": "Gerir Subscrição",
+        "btn_cancel_subscription": "Cancelar Renovação",
+        "confirm_cancel_sub_title": "Cancelar Renovação",
+        "confirm_cancel_sub_text": "A tua subscrição ficará ativa até ao final do período atual, mas não será renovada. Tens a certeza?"
     },
     en: {
         // App
@@ -387,7 +413,33 @@ const translations = {
         "onboarding_3_desc": "Share expenses with friends and family. Split bills automatically and see who owes what.",
         "btn_next": "Next",
         "btn_skip": "Skip tutorial",
-        "btn_start": "Let's go! 🚀"
+        "btn_start": "Let's go! 🚀",
+        // Recurring display
+        "js_daily": "Daily",
+        "js_weekly": "Weekly",
+        "js_monthly": "Monthly",
+        "js_yearly": "Yearly",
+        "no_recurring": "No active recurring expenses.",
+        // Sign out
+        "confirm_signout_title": "Sign Out",
+        "confirm_signout_text": "Are you sure you want to sign out?",
+        // Profile
+        "js_saving_profile": "Saving...",
+        "js_profile_saved": "Profile saved!",
+        "js_no_changes": "No changes",
+        // Category editing
+        "edit_category_title": "Edit Category",
+        "js_edit_cat": "Edit",
+        // Subscription
+        "subscription_title": "Subscription",
+        "plan_free": "Free Plan",
+        "plan_pro": "Premium Plan",
+        "subscription_active_until": "Active until",
+        "subscription_cancels_on": "Cancels on",
+        "btn_manage_subscription": "Manage Subscription",
+        "btn_cancel_subscription": "Cancel Renewal",
+        "confirm_cancel_sub_title": "Cancel Renewal",
+        "confirm_cancel_sub_text": "Your subscription will stay active until the end of the current period, but will not renew. Are you sure?"
     }
 };
 
@@ -408,6 +460,12 @@ function updateLanguage(lang, executeRenders = true) {
     if (lang) {
         currentLang = lang;
         localStorage.setItem('appLang', lang);
+
+        // Persist to Supabase profile if logged in
+        if (typeof supabaseClient !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
+            supabaseClient.from('profiles').update({ language: lang })
+                .eq('id', currentUser.id).then(() => { });
+        }
     }
 
     // Process HTML elements

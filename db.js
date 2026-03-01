@@ -342,13 +342,14 @@ class ExpenseDB {
         const newDate = new Date(d);
 
         if (recurringType === 'weekly' && params?.weeklyDays && params.weeklyDays.length > 0) {
-            // Advance to next week, then find the first matching day
-            const selectedDays = params.weeklyDays;
+            // Coerce to numbers to prevent type mismatch (string vs number)
+            const selectedDays = params.weeklyDays.map(Number);
             let daysToAdd = 1;
 
             while (daysToAdd <= 7) {
                 const testDate = new Date(d);
-                testDate.setDate(testDate.getDate() + daysToAdd);
+                // Use UTC-safe arithmetic to prevent DST drift
+                testDate.setTime(d.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
                 const dow = testDate.getDay();
 
                 if (selectedDays.includes(dow)) {

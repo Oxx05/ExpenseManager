@@ -168,6 +168,20 @@ function closeDayDetail() {
     selectedDayDate = null;
 }
 
+// Refresh the day detail modal if it's currently open
+async function refreshDayDetail() {
+    if (!selectedDayDate) return;
+    const detail = document.getElementById('day-detail');
+    if (detail.classList.contains('hidden')) return;
+    const expenses = await db.getExpensesWithRecurring(parseInt(selectedDayDate.split('-')[0]), parseInt(selectedDayDate.split('-')[1]) - 1);
+    const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+    if (dayExpenses.length === 0) {
+        closeDayDetail();
+    } else {
+        showDayDetail(selectedDayDate, dayExpenses);
+    }
+}
+
 // --- Swipe para trocar mês ---
 function setupCalendarSwipe() {
     const screen = document.getElementById('screen-calendar');
@@ -726,7 +740,10 @@ async function renderCategories() {
           ${budgetHtml}
         </div>
       </div>
-      <button class="category-delete-btn" data-id="${cat.id}" title="Eliminar">🗑️</button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="category-edit-btn" data-id="${cat.id}" title="${t('js_edit_cat')}" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px;">✏️</button>
+        <button class="category-delete-btn" data-id="${cat.id}" title="Eliminar" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px;">🗑️</button>
+      </div>
     `;
         list.appendChild(item);
     });
@@ -737,6 +754,62 @@ async function renderCategories() {
             const id = parseInt(btn.dataset.id);
             showConfirm(t('btn_delete'), t('js_confirm_delete_cat'), async () => {
                 await db.deleteCategory(id);
+                renderCategories();
+                renderCalendar();
+            });
+        });
+    });
+
+    // Edit handlers
+    list.querySelectorAll('.category-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = parseInt(btn.dataset.id);
+            const cat = categoriesCache.find(c => c.id === id);
+            if (!cat) return;
+
+            const item = btn.closest('.category-item');
+            const originalHtml = item.innerHTML;
+
+            item.innerHTML = `
+              <div style="display:flex; flex-direction:column; gap:8px; width:100%; padding:4px 0;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input type="text" class="edit-cat-icon" value="${cat.icon}" style="width:44px; text-align:center; font-size:20px; padding:6px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);" maxlength="4">
+                  <input type="text" class="edit-cat-name" value="${cat.name}" style="flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:14px;">
+                  <input type="color" class="edit-cat-color" value="${cat.color}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer; padding:0;">
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                  <button class="edit-cat-cancel btn-small" style="padding:6px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-dim); font-size:12px; cursor:pointer;">${t('btn_cancel')}</button>
+                  <button class="edit-cat-save btn-small" style="padding:6px 14px; border-radius:8px; background:var(--accent); border:none; color:white; font-size:12px; font-weight:600; cursor:pointer;">${t('btn_save')}</button>
+                </div>
+              </div>
+            `;
+
+            item.querySelector('.edit-cat-cancel').addEventListener('click', () => {
+                item.innerHTML = originalHtml;
+                // Re-attach handlers
+                renderCategories();
+            });
+
+            item.querySelector('.edit-cat-save').addEventListener('click', async () => {
+                const newName = item.querySelector('.edit-cat-name').value.trim();
+                const newIcon = item.querySelector('.edit-cat-icon').value.trim() || '🏷️';
+                const newColor = item.querySelector('.edit-cat-color').value;
+
+                if (!newName) return;
+                const oldName = cat.name;
+
+                cat.name = newName;
+                cat.icon = newIcon;
+                cat.color = newColor;
+                await db.updateCategory(cat);
+
+                if (currentUser) {
+                    supabaseClient.from('user_categories').update({
+                        name: newName, icon: newIcon, color: newColor
+                    }).eq('user_id', currentUser.id).eq('name', oldName).then(() => { });
+                }
+
+                categoriesCache = await db.getAllCategories();
                 renderCategories();
                 renderCalendar();
             });
@@ -864,6 +937,28 @@ function setupSummaryNav() {
         if (summaryMonth > 11) { summaryMonth = 0; summaryYear++; }
         renderSummary();
     });
+
+    // Swipe on summary screen
+    const summaryScreen = document.getElementById('screen-summary');
+    let sTouchStartX = 0, sTouchStartY = 0;
+    summaryScreen.addEventListener('touchstart', (e) => {
+        sTouchStartX = e.touches[0].clientX;
+        sTouchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    summaryScreen.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - sTouchStartX;
+        const dy = e.changedTouches[0].clientY - sTouchStartY;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx > 0) {
+                summaryMonth--;
+                if (summaryMonth < 0) { summaryMonth = 11; summaryYear--; }
+            } else {
+                summaryMonth++;
+                if (summaryMonth > 11) { summaryMonth = 0; summaryYear++; }
+            }
+            renderSummary();
+        }
+    }, { passive: true });
 }
 
 async function renderSummary() {
@@ -882,8 +977,12 @@ async function renderSummary() {
         db.getAllCategories()
     ]);
 
-    const expenses = [...localExpenses, ...groupExpenses];
+    const allExpenses = [...localExpenses, ...groupExpenses];
     categoriesCache = categories;
+
+    // Only count expenses up to today (future recurring should not count)
+    const today = new Date().toISOString().slice(0, 10);
+    const expenses = allExpenses.filter(e => e.date <= today);
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
@@ -1479,12 +1578,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Logout
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-        await supabaseClient.auth.signOut();
-        currentUser = null;
-        updateAuthUI();
-        navigateTo('account');
+    // Logout with confirmation
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        showConfirm(t('confirm_signout_title'), t('confirm_signout_text'), async () => {
+            await supabaseClient.auth.signOut();
+            currentUser = null;
+            updateAuthUI();
+            navigateTo('account');
+        });
     });
 
     // Create Group (Custom Modal)
@@ -2207,7 +2308,7 @@ function updateAuthUI() {
         document.getElementById('account-logged-in').classList.remove('hidden');
 
         // Obter infos para exibir e preencher formulário (limite robusto e leitura de avatar)
-        supabaseClient.from('profiles').select('name, email, phone, avatar_url').eq('id', currentUser.id).limit(1)
+        supabaseClient.from('profiles').select('name, email, phone, avatar_url, language').eq('id', currentUser.id).limit(1)
             .then(({ data, error }) => {
                 const profile = data && data.length > 0 ? data[0] : null;
                 const displayEmail = profile?.email || currentUser.email;
@@ -2226,6 +2327,14 @@ function updateAuthUI() {
                     avatarDiv.style.backgroundImage = 'none';
                 }
 
+                // Language persistence: apply stored language from account
+                if (profile?.language && profile.language !== currentLang) {
+                    updateLanguage(profile.language);
+                }
+                // Sync language selector dropdown
+                const langSelector = document.getElementById('lang-selector');
+                if (langSelector) langSelector.value = currentLang;
+
                 // Preencher formulário de perfil
                 const nameInput = document.getElementById('profile-name');
                 const phoneInput = document.getElementById('profile-phone');
@@ -2233,14 +2342,55 @@ function updateAuthUI() {
                 if (phoneInput) phoneInput.value = displayPhone;
             });
 
-        // Obter status PRO
-        supabaseClient.from('subscriptions').select('is_pro').eq('user_id', currentUser.id).single()
+        // Obter status PRO + subscription details
+        supabaseClient.from('subscriptions').select('is_pro, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).single()
             .then(({ data }) => {
                 currentUser.is_pro = data?.is_pro || false;
                 const badge = document.getElementById('pro-badge');
                 if (badge) {
                     if (currentUser.is_pro) badge.classList.remove('hidden');
                     else badge.classList.add('hidden');
+                }
+
+                // Render subscription section
+                const subSection = document.getElementById('subscription-section');
+                if (subSection) {
+                    if (currentUser.is_pro && data) {
+                        const endDate = data.current_period_end ? new Date(data.current_period_end).toLocaleDateString() : '—';
+                        const isCancelling = data.cancel_at_period_end;
+                        subSection.innerHTML = `
+                            <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <span style="font-weight:700; color:var(--text);">🌟 ${t('plan_pro')}</span>
+                                    <span style="font-size:12px; color:${isCancelling ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">
+                                        ${isCancelling ? t('subscription_cancels_on') + ' ' + endDate : t('subscription_active_until') + ' ' + endDate}
+                                    </span>
+                                </div>
+                                ${!isCancelling ? `<button id="cancel-subscription-btn" class="btn-small" style="width:100%; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); padding:10px; border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
+                            </div>
+                        `;
+
+                        // Cancel subscription handler
+                        const cancelBtn = document.getElementById('cancel-subscription-btn');
+                        if (cancelBtn) {
+                            cancelBtn.addEventListener('click', () => {
+                                showConfirm(t('confirm_cancel_sub_title'), t('confirm_cancel_sub_text'), async () => {
+                                    const { error } = await supabaseClient.from('subscriptions').update({
+                                        cancel_at_period_end: true
+                                    }).eq('user_id', currentUser.id);
+                                    if (error) alert(t('js_error') + ' ' + error.message);
+                                    else updateAuthUI();
+                                });
+                            });
+                        }
+                    } else {
+                        subSection.innerHTML = `
+                            <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px; text-align:center;">
+                                <span style="font-weight:600; color:var(--text-dim);">${t('plan_free')}</span>
+                            </div>
+                        `;
+                    }
+                    subSection.classList.remove('hidden');
                 }
             });
 
@@ -2253,14 +2403,44 @@ function updateAuthUI() {
         // Configurar o botão de guardar perfil (apenas uma vez para evitar leaks)
         const profileForm = document.getElementById('profile-form');
         if (profileForm) {
-            // Remove previous listeners stringing by replacing element
+            // Remove previous listeners by replacing element
             const newForm = profileForm.cloneNode(true);
             profileForm.parentNode.replaceChild(newForm, profileForm);
+
+            // Track initial values for change detection
+            let initialName = '';
+            let initialPhone = '';
+
+            // Set initial values once profile is loaded
+            setTimeout(() => {
+                initialName = document.getElementById('profile-name')?.value || '';
+                initialPhone = document.getElementById('profile-phone')?.value || '';
+                const btn = document.getElementById('profile-save-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                }
+            }, 500);
+
+            // Enable/disable save button on input change
+            const nameInput = newForm.querySelector('#profile-name');
+            const phoneInput = newForm.querySelector('#profile-phone');
+
+            const checkChanges = () => {
+                const btn = document.getElementById('profile-save-btn');
+                if (!btn) return;
+                const hasChanges = (nameInput?.value || '') !== initialName || (phoneInput?.value || '') !== initialPhone;
+                btn.disabled = !hasChanges;
+                btn.style.opacity = hasChanges ? '1' : '0.5';
+            };
+
+            if (nameInput) nameInput.addEventListener('input', checkChanges);
+            if (phoneInput) phoneInput.addEventListener('input', checkChanges);
 
             newForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('profile-save-btn');
-                setButtonLoading(btn, true, t('js_saving_profile') || 'A guardar...');
+                setButtonLoading(btn, true, t('js_saving_profile'));
 
                 const nameVal = document.getElementById('profile-name').value;
                 const phoneVal = document.getElementById('profile-phone').value;
@@ -2282,10 +2462,13 @@ function updateAuthUI() {
                     if (!avatarDiv.style.backgroundImage || avatarDiv.style.backgroundImage === 'none') {
                         avatarDiv.textContent = (nameVal || currentUser.email).charAt(0).toUpperCase();
                     }
-                }
 
-                btn.textContent = oldText;
-                btn.disabled = false;
+                    // Update initial values so button disables again
+                    initialName = nameVal;
+                    initialPhone = phoneVal;
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                }
             });
         }
 
@@ -2626,7 +2809,11 @@ window.deleteGroupExpense = async function (btn, expenseId) {
         });
         setButtonLoading(btn, false);
         if (error) alert("Erro ao apagar despesa de grupo: " + error.message);
-        else loadGroupDetail(currentGroup.id);
+        else {
+            loadGroupDetail(currentGroup.id);
+            renderCalendar();
+            refreshDayDetail();
+        }
     });
 }
 
