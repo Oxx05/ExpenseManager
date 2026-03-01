@@ -514,6 +514,7 @@ CREATE TABLE public.user_expenses (
   is_recurring boolean default false,
   recurring_type text,
   recurring_params jsonb,
+  parent_id uuid,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

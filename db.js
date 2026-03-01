@@ -133,7 +133,7 @@ class ExpenseDB {
                     // Check if a real entry already exists for this date
                     const exists = result.some(e =>
                         e.date === dateStr &&
-                        (e.parentId === expense.id || e.id === expense.id)
+                        (e.parentId === expense.id || e.id === expense.id || (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id === expense.cloud_id))
                     );
 
                     if (!exists) {
@@ -143,6 +143,7 @@ class ExpenseDB {
                             date: dateStr,
                             isProjected: true,
                             parentId: expense.id,
+                            cloud_parent_id: expense.cloud_id || null,
                             isRecurring: false, // projected copies aren't recurring themselves
                             _recurringType: expense.recurringType, // keep for display
                         });
@@ -165,7 +166,8 @@ class ExpenseDB {
      */
     async deleteRecurringAndChildren(parentId, fromDate = null) {
         const all = await this.getAllExpenses();
-        let toDelete = all.filter(e => e.id === parentId || e.parentId === parentId);
+        const parent = all.find(e => e.id === parentId) || {};
+        let toDelete = all.filter(e => e.id === parentId || e.parentId === parentId || (e.cloud_parent_id && parent.cloud_id && e.cloud_parent_id === parent.cloud_id));
 
         // If fromDate is provided, only delete from that date onwards
         if (fromDate) {
@@ -192,7 +194,10 @@ class ExpenseDB {
             while (nextDate <= today && safety-- > 0) {
                 const exists = all.some(e =>
                     e.date === nextDate &&
-                    (e.description === expense.description || e.parentId === expense.id) &&
+                    (e.description === expense.description ||
+                        e.parentId === expense.id ||
+                        (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id === expense.cloud_id)
+                    ) &&
                     e.id !== expense.id
                 );
 
@@ -205,9 +210,10 @@ class ExpenseDB {
                         isRecurring: false,
                         recurringType: 'none',
                         nextOccurrence: null,
-                        parentId: expense.id
+                        parentId: expense.id,
+                        cloud_parent_id: expense.cloud_id || null
                     });
-                    all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id });
+                    all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id, cloud_parent_id: expense.cloud_id || null });
                 }
 
                 const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);

@@ -754,7 +754,7 @@ async function renderCategories() {
                       <div class="category-item-count" style="color: var(--primary-light); font-weight: 600; font-size: 11px;">
                         <i class="fas fa-sync-alt" style="font-size:9px; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
                       </div>
-                      <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${formatDatePT(expense.date)}</div>
+                      <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${expense.date.split('-').reverse().join('/')}</div>
                     </div>
                   </div>
                   <button class="category-delete-btn recurring-delete-btn" data-id="${expense.id}" title="Eliminar Recorrência">🗑️</button>
@@ -1971,6 +1971,7 @@ async function syncExpenses() {
                     recurringType: se.recurring_type,
                     recurringParams: se.recurring_params,
                     cloud_id: se.id,
+                    cloud_parent_id: se.parent_id,
                     updated_at: se.updated_at
                 });
             } else {
@@ -1978,7 +1979,7 @@ async function syncExpenses() {
                 const cloudTime = new Date(se.updated_at).getTime();
                 const localTime = new Date(localMatch.updated_at).getTime();
 
-                if (cloudTime > localTime) {
+                if (cloudTime > localTime && !localMatch.is_deleted) {
                     // Update local with cloud data
                     await db.updateExpense({
                         ...localMatch,
@@ -1990,6 +1991,7 @@ async function syncExpenses() {
                         recurringType: se.recurring_type,
                         recurringParams: se.recurring_params,
                         cloud_id: se.id,
+                        cloud_parent_id: se.parent_id,
                         updated_at: se.updated_at
                     });
                 }
@@ -2014,6 +2016,7 @@ async function syncExpenses() {
                     is_recurring: le.isRecurring || false,
                     recurring_type: le.recurringType || 'none',
                     recurring_params: le.recurringParams || null,
+                    parent_id: le.cloud_parent_id || null,
                     updated_at: le.updated_at
                 }).select().single();
 
@@ -2028,10 +2031,12 @@ async function syncExpenses() {
 
                 if (le.is_deleted) {
                     // Delete from cloud
-                    await supabaseClient.from('user_expenses').delete().eq('id', le.cloud_id);
-                    // We can also fully delete it locally now to save space, but keeping the tombstone is safer
-                    const tx = db.db.transaction('expenses', 'readwrite');
-                    tx.objectStore('expenses').delete(le.id);
+                    const { error: delErr } = await supabaseClient.from('user_expenses').delete().eq('id', le.cloud_id);
+                    if (!delErr) {
+                        // We can also fully delete it locally now to save space, but keeping the tombstone is safer
+                        const tx = db.db.transaction('expenses', 'readwrite');
+                        tx.objectStore('expenses').delete(le.id);
+                    }
                 } else if (localTime > cloudTime && cloudMatch) {
                     // Update cloud
                     await supabaseClient.from('user_expenses').update({
@@ -2042,6 +2047,7 @@ async function syncExpenses() {
                         is_recurring: le.isRecurring || false,
                         recurring_type: le.recurringType || 'none',
                         recurring_params: le.recurringParams || null,
+                        parent_id: le.cloud_parent_id || null,
                         updated_at: le.updated_at
                     }).eq('id', le.cloud_id);
                 }
