@@ -2379,12 +2379,10 @@ function updateAuthUI() {
                                     <span style="font-weight:700; color:var(--text);">🌟 ${planLabel}</span>
                                     ${statusHtml}
                                 </div>
-                                ${(!isCancelling && endDate) ? `
-                                    <div style="display:flex; gap:8px;">
-                                        <button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>
-                                        <button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;"><i class="fas fa-times"></i></button>
-                                    </div>
-                                ` : ''}
+                                <div style="display:flex; gap:8px; margin-top:8px;">
+                                    <button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>
+                                    ${(!isCancelling && endDate) ? `<button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;"><i class="fas fa-times"></i></button>` : ''}
+                                </div>
                             </div>
                         `;
 
