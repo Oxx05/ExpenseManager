@@ -596,6 +596,7 @@ function setupDeleteModal() {
     document.getElementById('delete-one-btn').addEventListener('click', async () => {
         if (editingExpense?.id) {
             await db.deleteExpense(editingExpense.id);
+            if (editingExpense.isRecurring) await db.processRecurring();
             syncExpenses();
             closeDayDetail();
             renderCalendar();
@@ -609,7 +610,9 @@ function setupDeleteModal() {
     document.getElementById('delete-from-btn').addEventListener('click', async () => {
         if (editingExpense) {
             const parentId = editingExpense.parentId || editingExpense.id;
+            console.log('Deleting from date:', editingExpense.date, 'parentId:', parentId);
             await db.deleteRecurringAndChildren(parentId, editingExpense.date);
+            await db.processRecurring();
             syncExpenses();
             closeDayDetail();
             renderCalendar();
@@ -623,9 +626,10 @@ function setupDeleteModal() {
     document.getElementById('delete-all-btn').addEventListener('click', async () => {
         if (editingExpense) {
             const parentId = editingExpense.parentId || editingExpense.id;
+            console.log('Deleting all for parentId:', parentId);
             await db.deleteRecurringAndChildren(parentId);
+            await db.processRecurring();
             syncExpenses();
-            // Refresh UI
             closeDayDetail();
             renderCalendar();
             if (document.getElementById('screen-categories').classList.contains('active')) {

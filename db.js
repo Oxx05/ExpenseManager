@@ -130,6 +130,9 @@ class ExpenseDB {
             while (current <= endDate && safetyLimit-- > 0) {
                 const dateStr = current.toISOString().slice(0, 10);
 
+                // Stop if we hit recurringUntil
+                if (expense.recurringUntil && dateStr > expense.recurringUntil) break;
+
                 if (dateStr >= from && dateStr <= to && dateStr !== expense.date) {
                     // Check if a real entry (active OR deleted) already exists for this date
                     const exists = tombstones.some(e =>
@@ -167,40 +170,52 @@ class ExpenseDB {
      */
     async deleteRecurringAndChildren(id, fromDate = null) {
         const all = await this.getRawExpenses();
-        let target = all.find(e => e.id === id);
+        let target = all.find(e => e.id == id);
         if (!target) return;
 
-        // resolve the ACTUAL parent (master)
-        let masterId = target.id;
-        let cloudMasterId = target.cloud_id;
-
+        // Resolve the ACTUAL parent (master)
+        let master = target;
         if (target.parentId || target.cloud_parent_id) {
-            const master = all.find(e =>
+            master = all.find(e =>
                 (target.parentId && e.id == target.parentId) ||
                 (target.cloud_parent_id && e.cloud_id == target.cloud_parent_id)
+            ) || target;
+        }
+
+        // 1. If Delete All (fromDate is null)
+        if (!fromDate) {
+            let toDelete = all.filter(e =>
+                e.id == master.id ||
+                e.parentId == master.id ||
+                (master.cloud_id && (e.cloud_id == master.cloud_id || e.cloud_parent_id == master.cloud_id))
             );
-            if (master) {
-                masterId = master.id;
-                cloudMasterId = master.cloud_id;
-            } else {
-                // if master not found offline, use the foreign keys we have
-                masterId = target.parentId;
-                cloudMasterId = target.cloud_parent_id;
+            for (const e of toDelete) {
+                await this.deleteExpense(e.id);
             }
+            return;
         }
 
-        let toDelete = all.filter(e =>
-            e.id == masterId ||
-            e.parentId == masterId ||
-            (cloudMasterId && (e.cloud_id == cloudMasterId || e.cloud_parent_id == cloudMasterId))
+        // 2. If Delete From Here Onwards
+        // Delete all real physical children >= fromDate
+        let physicalToDelete = all.filter(e =>
+            (e.parentId == master.id || (master.cloud_id && e.cloud_parent_id == master.cloud_id)) &&
+            e.date >= fromDate
         );
-
-        if (fromDate) {
-            toDelete = toDelete.filter(e => e.date >= fromDate);
+        for (const e of physicalToDelete) {
+            await this.deleteExpense(e.id);
         }
 
-        for (const e of toDelete) {
-            await this.deleteExpense(e.id);
+        // Handle the master itself
+        if (master.date >= fromDate) {
+            // If the series starts at or after the deletion point, delete the whole master
+            await this.deleteExpense(master.id);
+        } else {
+            // truncate the series by setting recurringUntil to day-1
+            const d = new Date(fromDate + 'T00:00:00');
+            d.setDate(d.getDate() - 1);
+            master.recurringUntil = d.toISOString().slice(0, 10);
+            master.updated_at = new Date().toISOString();
+            await this.updateExpense(master);
         }
     }
 
