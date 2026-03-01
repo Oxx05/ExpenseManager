@@ -332,7 +332,7 @@ async function showDayDetail(dateStr, expenses) {
       <div class="expense-item-amount">${formatCurrency(expense.amount)}</div>
     `;
 
-        if (!isProjected && !expense.isGroupExpense) {
+        if (!expense.isGroupExpense) {
             item.addEventListener('click', () => openEditExpense(expense));
         } else if (expense.isGroupExpense) {
             item.addEventListener('click', () => navigateTo('groups'));
@@ -594,9 +594,17 @@ function setupDeleteModal() {
     });
 
     document.getElementById('delete-one-btn').addEventListener('click', async () => {
-        if (editingExpense?.id) {
-            await db.deleteExpense(editingExpense.id);
-            if (editingExpense.isRecurring) await db.processRecurring();
+        if (editingExpense) {
+            const isRecurringRelated = editingExpense.isRecurring || editingExpense.parentId || editingExpense.cloud_parent_id;
+
+            if (isRecurringRelated) {
+                const parentId = editingExpense.parentId || editingExpense.id;
+                await db.deleteRecurringAndChildren(parentId, editingExpense.date, true);
+                await db.processRecurring();
+            } else {
+                await db.deleteExpense(editingExpense.id);
+            }
+
             syncExpenses();
             closeDayDetail();
             renderCalendar();

@@ -115,7 +115,13 @@ class ExpenseDB {
         const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         // Start with real active expenses in this month
-        const result = all.filter(e => e.date >= from && e.date <= to);
+        let result = all.filter(e => e.date >= from && e.date <= to);
+
+        // Filter out master expenses if their specific date was marked as deleted
+        result = result.filter(e => {
+            if (e.isRecurring && e.recurringParams?.deletedDates?.includes(e.date)) return false;
+            return true;
+        });
 
         // Add projections from recurring expenses
         const recurring = all.filter(e => e.isRecurring && e.recurringType && e.recurringType !== 'none');
@@ -132,6 +138,14 @@ class ExpenseDB {
 
                 // Stop if we hit recurringUntil
                 if (expense.recurringUntil && dateStr > expense.recurringUntil) break;
+
+                // Stop if this specific occurrence was deleted
+                if (expense.recurringParams?.deletedDates?.includes(dateStr)) {
+                    // Advance and continue loop
+                    current = this._advanceDateWithParams(new Date(current), expense.recurringType, expense.recurringParams);
+                    if (current <= startDate) break;
+                    continue;
+                }
 
                 if (dateStr >= from && dateStr <= to && dateStr !== expense.date) {
                     // Check if a real entry (active OR deleted) already exists for this date
@@ -168,7 +182,7 @@ class ExpenseDB {
      * @param {number} parentId - ID da despesa recorrente mãe ou qualquer filha
      * @param {string} fromDate - Data (YYYY-MM-DD) para apagar apenas a partir dessa data. Se null, apaga tudo.
      */
-    async deleteRecurringAndChildren(id, fromDate = null) {
+    async deleteRecurringAndChildren(id, fromDate = null, isSingle = false) {
         const all = await this.getRawExpenses();
         let target = all.find(e => e.id == id);
         if (!target) return;
@@ -195,7 +209,37 @@ class ExpenseDB {
             return;
         }
 
-        // 2. If Delete From Here Onwards
+        // 2. If Delete ONLY this occurrence
+        if (isSingle) {
+            // Record it in master for persistence
+            if (!master.recurringParams) master.recurringParams = {};
+            if (!master.recurringParams.deletedDates) master.recurringParams.deletedDates = [];
+            if (!master.recurringParams.deletedDates.includes(fromDate)) {
+                master.recurringParams.deletedDates.push(fromDate);
+                master.updated_at = new Date().toISOString();
+                await this.updateExpense(master);
+            }
+
+            // Also delete real physical children at THIS date (if any were materialized)
+            let physicalOnDate = all.filter(e =>
+                (e.parentId == master.id || (master.cloud_id && e.cloud_parent_id == master.cloud_id)) &&
+                e.date === fromDate
+            );
+            for (const e of physicalOnDate) {
+                await this.deleteExpense(e.id);
+            }
+
+            // Handle the master itself if it's the target date
+            if (master.date === fromDate) {
+                // If the series starts exactly on the deleted date, we materialize the "next" occurrence as the new master?
+                // For simplicity, we just mark it as deleted in itself if needed, or simply let the projection engine skip it.
+                // Our projection engine already skips master.date if it's in deletedDates? No.
+                // Let's ensure projection engine also checks the master itself.
+            }
+            return;
+        }
+
+        // 3. If Delete FROM HERE onwards
         // Delete all real physical children >= fromDate
         let physicalToDelete = all.filter(e =>
             (e.parentId == master.id || (master.cloud_id && e.cloud_parent_id == master.cloud_id)) &&
@@ -210,7 +254,7 @@ class ExpenseDB {
             // If the series starts at or after the deletion point, delete the whole master
             await this.deleteExpense(master.id);
         } else {
-            // truncate the series by setting recurringUntil to day-1
+            // Truncate the series by setting recurringUntil to day-1
             const d = new Date(fromDate + 'T00:00:00');
             d.setDate(d.getDate() - 1);
             master.recurringUntil = d.toISOString().slice(0, 10);
@@ -232,6 +276,16 @@ class ExpenseDB {
             let safety = 500;
 
             while (nextDate <= today && safety-- > 0) {
+                // Stop if we hit recurringUntil
+                if (expense.recurringUntil && nextDate > expense.recurringUntil) break;
+
+                // Stop if this specific occurrence was deleted
+                if (expense.recurringParams?.deletedDates?.includes(nextDate)) {
+                    const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
+                    nextDate = d.toISOString().slice(0, 10);
+                    continue;
+                }
+
                 const exists = all.some(e =>
                     e.date === nextDate &&
                     (e.description === expense.description ||
