@@ -2346,7 +2346,7 @@ function updateAuthUI() {
             });
 
         // Obter status PRO + subscription details
-        supabaseClient.from('subscriptions').select('is_pro, plan_interval, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).maybeSingle()
+        supabaseClient.from('subscriptions').select('is_pro, plan_interval, current_period_end, cancel_at_period_end, stripe_customer_id').eq('user_id', currentUser.id).maybeSingle()
             .then(({ data }) => {
                 currentUser.is_pro = data?.is_pro || false;
                 const badge = document.getElementById('pro-badge');
@@ -2379,12 +2379,39 @@ function updateAuthUI() {
                                     <span style="font-weight:700; color:var(--text);">🌟 ${planLabel}</span>
                                     ${statusHtml}
                                 </div>
-                                ${(!isCancelling && endDate) ? `<button id="cancel-subscription-btn" class="btn-small" style="width:100%; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); padding:10px; border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
+                                ${(!isCancelling && endDate) ? `
+                                    <div style="display:flex; gap:8px;">
+                                        <button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>
+                                        <button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;"><i class="fas fa-times"></i></button>
+                                    </div>
+                                ` : ''}
                             </div>
                         `;
 
+                        // Manage subscription (Stripe Portal)
+                        const manageBtn = document.getElementById('manage-subscription-btn');
+                        if (manageBtn) {
+                            manageBtn.addEventListener('click', async () => {
+                                setButtonLoading(manageBtn, true);
+                                try {
+                                    const response = await fetch('/api/create-portal', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ customerId: data.stripe_customer_id })
+                                    });
+                                    const resData = await response.json();
+                                    if (resData.url) window.location.href = resData.url;
+                                    else alert("Erro ao abrir portal: " + (resData.error || 'Unknown error'));
+                                } catch (e) {
+                                    alert("Erro: " + e.message);
+                                } finally {
+                                    setButtonLoading(manageBtn, false);
+                                }
+                            });
+                        }
+
                         // Cancel subscription handler
-                        const cancelBtn = document.getElementById('cancel-subscription-btn');
+                        const cancelBtn = document.getElementById('cancel-subscription-row-btn');
                         if (cancelBtn) {
                             cancelBtn.addEventListener('click', () => {
                                 showConfirm(t('confirm_cancel_sub_title'), t('confirm_cancel_sub_text'), async () => {
@@ -2399,9 +2426,31 @@ function updateAuthUI() {
                     } else {
                         subSection.innerHTML = `
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px; text-align:center;">
-                                <span style="font-weight:600; color:var(--text-dim);">${t('plan_free')}</span>
+                                <div style="font-weight:600; color:var(--text-dim); margin-bottom:12px;">${t('plan_free')}</div>
+                                <button id="upgrade-pro-btn" class="btn-small" style="width:100%; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:700;">✨ ${t('btn_upgrade_pro')}</button>
                             </div>
                         `;
+
+                        const upgradeBtn = document.getElementById('upgrade-pro-btn');
+                        if (upgradeBtn) {
+                            upgradeBtn.addEventListener('click', async () => {
+                                setButtonLoading(upgradeBtn, true);
+                                try {
+                                    const response = await fetch('/api/create-checkout', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
+                                    });
+                                    const resData = await response.json();
+                                    if (resData.url) window.location.href = resData.url;
+                                    else alert("Erro ao abrir checkout: " + (resData.error || 'Unknown error'));
+                                } catch (e) {
+                                    alert("Erro: " + e.message);
+                                } finally {
+                                    setButtonLoading(upgradeBtn, false);
+                                }
+                            });
+                        }
                     }
                     subSection.classList.remove('hidden');
                 }

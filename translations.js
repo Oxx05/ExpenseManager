@@ -220,6 +220,7 @@ const translations = {
         "subscription_cancels_on": "Cancela a",
         "btn_manage_subscription": "Gerir Subscrição",
         "btn_cancel_subscription": "Cancelar Renovação",
+        "btn_upgrade_pro": "Fazer Upgrade para PRO",
         "confirm_cancel_sub_title": "Cancelar Renovação",
         "confirm_cancel_sub_text": "A tua subscrição ficará ativa até ao final do período atual, mas não será renovada. Tens a certeza?"
     },
@@ -444,6 +445,7 @@ const translations = {
         "subscription_cancels_on": "Cancels on",
         "btn_manage_subscription": "Manage Subscription",
         "btn_cancel_subscription": "Cancel Renewal",
+        "btn_upgrade_pro": "Upgrade to PRO",
         "confirm_cancel_sub_title": "Cancel Renewal",
         "confirm_cancel_sub_text": "Your subscription will stay active until the end of the current period, but will not renew. Are you sure?"
     }
