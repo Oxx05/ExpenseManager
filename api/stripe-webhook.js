@@ -44,20 +44,24 @@ export default async function handler(req, res) {
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-
-        // This is the user's ID we passed from the frontend
         const userId = session.client_reference_id;
-        const customerId = session.customer;
         const subscriptionId = session.subscription;
 
-        if (userId) {
-            // Upgrade user to PRO in Supabase
+        if (userId && subscriptionId) {
+            // Fetch subscription details from Stripe
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const plan = subscription.items.data[0].plan;
+
+            // Upgrade user to PRO in Supabase with full details
             const { error } = await supabase
                 .from('subscriptions')
                 .update({
                     is_pro: true,
-                    stripe_customer_id: customerId,
+                    stripe_customer_id: session.customer,
                     stripe_subscription_id: subscriptionId,
+                    plan_interval: plan.interval, // 'month' or 'year'
+                    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                    cancel_at_period_end: subscription.cancel_at_period_end,
                     updated_at: new Date().toISOString()
                 })
                 .eq('user_id', userId);
@@ -66,8 +70,25 @@ export default async function handler(req, res) {
                 console.error('Error updating Supabase subscription:', error);
                 return res.status(500).json({ error: 'Database update failed' });
             }
-            console.log(`Successfully upgraded user ${userId} to PRO`);
+            console.log(`Successfully upgraded user ${userId} to PRO (${plan.interval})`);
         }
+    } else if (event.type === 'customer.subscription.updated') {
+        const subscription = event.data.object;
+        const plan = subscription.items.data[0].plan;
+
+        // Keep Supabase in sync when subscription changes (e.g. renewal, cancellation toggled)
+        const { error } = await supabase
+            .from('subscriptions')
+            .update({
+                is_pro: subscription.status === 'active' || subscription.status === 'trialing',
+                plan_interval: plan.interval,
+                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                cancel_at_period_end: subscription.cancel_at_period_end,
+                updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', subscription.id);
+
+        if (error) console.error('Update error:', error);
     } else if (event.type === 'customer.subscription.deleted') {
         // Se a pessoa cancelar a subscrição, tiramos o Pro
         const subscription = event.data.object;
@@ -75,6 +96,7 @@ export default async function handler(req, res) {
             .from('subscriptions')
             .update({
                 is_pro: false,
+                cancel_at_period_end: false,
                 updated_at: new Date().toISOString()
             })
             .eq('stripe_subscription_id', subscription.id);

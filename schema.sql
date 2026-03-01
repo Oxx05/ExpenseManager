@@ -4,7 +4,8 @@ CREATE TABLE public.profiles (
   email text unique not null,
   name text,
   phone text,
-  avatar_url text
+  avatar_url text,
+  language text default 'pt'
 );
 
 -- Habilitar RLS
@@ -17,6 +18,9 @@ CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth
 CREATE TABLE public.subscriptions (
   user_id uuid references public.profiles(id) on delete cascade not null primary key,
   is_pro boolean default false not null,
+  plan_interval text, -- 'month' or 'year'
+  current_period_end timestamp with time zone,
+  cancel_at_period_end boolean default false,
   stripe_customer_id text,
   stripe_subscription_id text,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null

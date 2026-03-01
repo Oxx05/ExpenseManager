@@ -2346,7 +2346,7 @@ function updateAuthUI() {
             });
 
         // Obter status PRO + subscription details
-        supabaseClient.from('subscriptions').select('is_pro, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).maybeSingle()
+        supabaseClient.from('subscriptions').select('is_pro, plan_interval, current_period_end, cancel_at_period_end').eq('user_id', currentUser.id).maybeSingle()
             .then(({ data }) => {
                 currentUser.is_pro = data?.is_pro || false;
                 const badge = document.getElementById('pro-badge');
@@ -2369,10 +2369,14 @@ function updateAuthUI() {
                         } else {
                             statusHtml = `<span style="font-size:12px; color:var(--success); font-weight:600;">✓</span>`;
                         }
+                        let planLabel = t('plan_pro');
+                        if (data.plan_interval === 'month') planLabel = t('plan_monthly');
+                        if (data.plan_interval === 'year') planLabel = t('plan_yearly');
+
                         subSection.innerHTML = `
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                    <span style="font-weight:700; color:var(--text);">🌟 ${t('plan_pro')}</span>
+                                    <span style="font-weight:700; color:var(--text);">🌟 ${planLabel}</span>
                                     ${statusHtml}
                                 </div>
                                 ${(!isCancelling && endDate) ? `<button id="cancel-subscription-btn" class="btn-small" style="width:100%; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); padding:10px; border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
