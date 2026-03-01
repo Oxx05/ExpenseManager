@@ -539,6 +539,14 @@ async function saveExpense(e) {
     if (isRecurring) await db.processRecurring();
     setButtonLoading(btn, false);
     syncExpenses();
+
+    // Refresh UI list if on calendar
+    if (selectedDayDate) {
+        const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+        const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+        showDayDetail(selectedDayDate, dayExpenses);
+    }
+
     navigateTo('calendar');
 }
 
@@ -585,6 +593,16 @@ function setupDeleteModal() {
         if (editingExpense?.id) {
             await db.deleteExpense(editingExpense.id);
             syncExpenses();
+            // Refresh UI
+            if (selectedDayDate) {
+                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+                if (dayExpenses.length > 0) {
+                    showDayDetail(selectedDayDate, dayExpenses);
+                } else {
+                    document.getElementById('day-detail').classList.add('hidden');
+                }
+            }
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -595,6 +613,16 @@ function setupDeleteModal() {
             // Delete from this date onwards
             await db.deleteRecurringAndChildren(parentId, editingExpense.date);
             syncExpenses();
+            // Refresh UI
+            if (selectedDayDate) {
+                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+                if (dayExpenses.length > 0) {
+                    showDayDetail(selectedDayDate, dayExpenses);
+                } else {
+                    document.getElementById('day-detail').classList.add('hidden');
+                }
+            }
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -605,6 +633,8 @@ function setupDeleteModal() {
             // Delete all (no date limit)
             await db.deleteRecurringAndChildren(parentId);
             syncExpenses();
+            // Refresh UI
+            document.getElementById('day-detail').classList.add('hidden');
         }
         document.getElementById('delete-modal').classList.add('hidden');
         navigateTo('calendar');
@@ -614,8 +644,8 @@ function setupDeleteModal() {
 function handleDelete() {
     if (!editingExpense) return;
 
-    // Check if this expense is recurring or a child of a recurring expense
-    const isRecurringRelated = editingExpense.isRecurring || editingExpense.parentId;
+    // Check if this expense is recurring or a child of a recurring expense (local or cloud)
+    const isRecurringRelated = editingExpense.isRecurring || editingExpense.parentId || editingExpense.cloud_parent_id;
 
     if (isRecurringRelated) {
         const modal = document.getElementById('delete-modal');
@@ -629,8 +659,18 @@ function handleDelete() {
         modal.classList.remove('hidden');
     } else {
         if (confirm('Eliminar esta despesa?')) {
-            db.deleteExpense(editingExpense.id).then(() => {
+            db.deleteExpense(editingExpense.id).then(async () => {
                 syncExpenses();
+                // Refresh UI
+                if (selectedDayDate) {
+                    const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+                    const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+                    if (dayExpenses.length > 0) {
+                        showDayDetail(selectedDayDate, dayExpenses);
+                    } else {
+                        document.getElementById('day-detail').classList.add('hidden');
+                    }
+                }
                 navigateTo('calendar');
             });
         }

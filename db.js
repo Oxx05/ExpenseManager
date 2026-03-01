@@ -165,9 +165,13 @@ class ExpenseDB {
      * @param {string} fromDate - Data (YYYY-MM-DD) para apagar apenas a partir dessa data. Se null, apaga tudo.
      */
     async deleteRecurringAndChildren(parentId, fromDate = null) {
-        const all = await this.getAllExpenses();
+        const all = await this.getRawExpenses(); // Get EVERYTHING including tombstones to be sure
         const parent = all.find(e => e.id === parentId) || {};
-        let toDelete = all.filter(e => e.id === parentId || e.parentId === parentId || (e.cloud_parent_id && parent.cloud_id && e.cloud_parent_id === parent.cloud_id));
+        let toDelete = all.filter(e =>
+            e.id === parentId ||
+            e.parentId === parentId ||
+            (e.cloud_parent_id && parent.cloud_id && e.cloud_parent_id === parent.cloud_id)
+        );
 
         // If fromDate is provided, only delete from that date onwards
         if (fromDate) {
