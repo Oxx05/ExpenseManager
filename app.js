@@ -589,55 +589,56 @@ function setupDeleteModal() {
     document.getElementById('delete-cancel-btn').addEventListener('click', () => {
         document.getElementById('delete-modal').classList.add('hidden');
     });
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+    });
+
     document.getElementById('delete-one-btn').addEventListener('click', async () => {
         if (editingExpense?.id) {
             await db.deleteExpense(editingExpense.id);
             syncExpenses();
             // Refresh UI
-            if (selectedDayDate) {
+            if (document.getElementById('screen-calendar').classList.contains('active')) {
                 const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
                 const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                if (dayExpenses.length > 0) {
-                    showDayDetail(selectedDayDate, dayExpenses);
-                } else {
-                    document.getElementById('day-detail').classList.add('hidden');
-                }
+                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
+                else document.getElementById('day-detail').classList.add('hidden');
+                renderCalendar();
+            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+                renderCategories();
             }
         }
         document.getElementById('delete-modal').classList.add('hidden');
-        navigateTo('calendar');
     });
     document.getElementById('delete-from-btn').addEventListener('click', async () => {
         if (editingExpense) {
             const parentId = editingExpense.parentId || editingExpense.id;
-            // Delete from this date onwards
             await db.deleteRecurringAndChildren(parentId, editingExpense.date);
             syncExpenses();
             // Refresh UI
-            if (selectedDayDate) {
+            if (document.getElementById('screen-calendar').classList.contains('active')) {
                 const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
                 const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                if (dayExpenses.length > 0) {
-                    showDayDetail(selectedDayDate, dayExpenses);
-                } else {
-                    document.getElementById('day-detail').classList.add('hidden');
-                }
+                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
+                else document.getElementById('day-detail').classList.add('hidden');
+                renderCalendar();
+            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+                renderCategories();
             }
         }
         document.getElementById('delete-modal').classList.add('hidden');
-        navigateTo('calendar');
     });
     document.getElementById('delete-all-btn').addEventListener('click', async () => {
         if (editingExpense) {
             const parentId = editingExpense.parentId || editingExpense.id;
-            // Delete all (no date limit)
             await db.deleteRecurringAndChildren(parentId);
             syncExpenses();
             // Refresh UI
             document.getElementById('day-detail').classList.add('hidden');
+            if (document.getElementById('screen-calendar').classList.contains('active')) renderCalendar();
+            else if (document.getElementById('screen-categories').classList.contains('active')) renderCategories();
         }
         document.getElementById('delete-modal').classList.add('hidden');
-        navigateTo('calendar');
     });
 }
 
@@ -658,22 +659,21 @@ function handleDelete() {
         }
         modal.classList.remove('hidden');
     } else {
-        if (confirm('Eliminar esta despesa?')) {
-            db.deleteExpense(editingExpense.id).then(async () => {
-                syncExpenses();
-                // Refresh UI
-                if (selectedDayDate) {
-                    const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
-                    const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
-                    if (dayExpenses.length > 0) {
-                        showDayDetail(selectedDayDate, dayExpenses);
-                    } else {
-                        document.getElementById('day-detail').classList.add('hidden');
-                    }
-                }
-                navigateTo('calendar');
-            });
-        }
+        showConfirm(t('delete_expense_title'), t('js_confirm_delete'), async () => {
+            await db.deleteExpense(editingExpense.id);
+            syncExpenses();
+            // Refresh UI
+            if (document.getElementById('screen-calendar').classList.contains('active')) {
+                const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
+                const dayExpenses = expenses.filter(e => e.date === selectedDayDate);
+                if (dayExpenses.length > 0) showDayDetail(selectedDayDate, dayExpenses);
+                else document.getElementById('day-detail').classList.add('hidden');
+                renderCalendar();
+            } else if (document.getElementById('screen-categories').classList.contains('active')) {
+                renderCategories();
+            }
+            navigateTo('calendar');
+        });
     }
 }
 
@@ -733,11 +733,11 @@ async function renderCategories() {
     list.querySelectorAll('.category-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
-            if (confirm(t('js_confirm_delete_cat'))) {
+            showConfirm(t('btn_delete'), t('js_confirm_delete_cat'), async () => {
                 await db.deleteCategory(id);
                 renderCategories();
                 renderCalendar();
-            }
+            });
         });
     });
 
@@ -807,14 +807,10 @@ async function renderCategories() {
                 });
 
                 // Click to delete
-                item.querySelector('.recurring-delete-btn').addEventListener('click', async (e) => {
+                item.querySelector('.recurring-delete-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
-                    if (confirm('Pretende eliminar esta despesa recorrente e todas as suas projecções futuras?')) {
-                        await db.deleteRecurringAndChildren(expense.id);
-                        syncExpenses();
-                        renderCategories();
-                        renderCalendar();
-                    }
+                    editingExpense = expense;
+                    handleDelete();
                 });
             });
         }
@@ -1377,6 +1373,26 @@ function setupServiceWorker() {
 // UTILS
 // ============================================
 
+/**
+ * Custom styled confirmation modal
+ */
+function showConfirm(title, text, onConfirm) {
+    document.getElementById('confirm-modal-title').textContent = title || t('confirm_title');
+    document.getElementById('confirm-modal-text').textContent = text;
+
+    // Clone button to clear previous listeners
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const newOkBtn = okBtn.cloneNode(true);
+    okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+    newOkBtn.addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        if (onConfirm) onConfirm();
+    });
+
+    document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
 function formatCurrency(amount) {
     return amount.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
@@ -1546,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             // Handle specific errors natively
             if (data.error_code === 'USER_NOT_FOUND') {
-                if (confirm(t('js_invite_not_found'))) {
+                showConfirm(t('confirm_title'), t('js_invite_not_found'), () => {
                     // Try to trigger Native Share API or Mailto Fallback
                     const shareText = t('js_invite_share_text');
                     const shareUrl = window.location.origin;
@@ -1559,7 +1575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     } else {
                         window.location.href = `mailto:${email}?subject=${encodeURIComponent(t('js_invite_share_title'))}&body=${encodeURIComponent(shareText + "\n" + shareUrl)}`;
                     }
-                }
+                });
             } else if (data.error_code === 'ALREADY_MEMBER') {
                 alert(t('js_err_invite_member'));
             } else if (data.error_code === 'LIMIT_REACHED') {
@@ -1571,81 +1587,81 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Archive Group
     document.getElementById('archive-group-btn').addEventListener('click', async () => {
         if (!currentGroup) return;
-        if (!confirm(t('js_confirm_archive_group'))) return;
+        showConfirm(t('btn_archive_group'), t('js_confirm_archive_group'), async () => {
+            const btn = document.getElementById('archive-group-btn');
+            setButtonLoading(btn, true, t('btn_archive_group'));
 
-        const btn = document.getElementById('archive-group-btn');
-        setButtonLoading(btn, true, t('btn_archive_group'));
+            const { error } = await supabaseClient.rpc('archive_group', {
+                p_group_id: currentGroup.id
+            });
 
-        const { error } = await supabaseClient.rpc('archive_group', {
-            p_group_id: currentGroup.id
+            setButtonLoading(btn, false);
+
+            if (error) {
+                alert(t('js_error') + " " + error.message);
+                return;
+            }
+
+            currentGroup.isArchived = true;
+            loadGroupDetail(currentGroup.id);
+            renderGroupsScreen(); // Update the list in the background
         });
-
-        setButtonLoading(btn, false);
-
-        if (error) {
-            alert(t('js_error') + " " + error.message);
-            return;
-        }
-
-        currentGroup.isArchived = true;
-        loadGroupDetail(currentGroup.id);
-        renderGroupsScreen(); // Update the list in the background
     });
 
     // Unarchive Group
     document.getElementById('unarchive-group-btn').addEventListener('click', async () => {
         if (!currentGroup) return;
-        if (!confirm(t('js_confirm_unarchive_group'))) return;
+        showConfirm(t('btn_unarchive_group'), t('js_confirm_unarchive_group'), async () => {
+            const btn = document.getElementById('unarchive-group-btn');
+            setButtonLoading(btn, true, t('btn_unarchive_group'));
 
-        const btn = document.getElementById('unarchive-group-btn');
-        setButtonLoading(btn, true, t('btn_unarchive_group'));
+            const { data, error } = await supabaseClient.rpc('unarchive_group', {
+                p_group_id: currentGroup.id
+            });
 
-        const { data, error } = await supabaseClient.rpc('unarchive_group', {
-            p_group_id: currentGroup.id
+            setButtonLoading(btn, false);
+
+            if (error) {
+                alert(t('js_error') + " " + error.message);
+                return;
+            }
+
+            if (data.success) {
+                currentGroup.isArchived = false;
+                loadGroupDetail(currentGroup.id);
+                renderGroupsScreen(); // Update the list in the background
+            } else if (data.error_code === 'LIMIT_REACHED') {
+                alert(t('js_err_unarchive_limit'));
+                showPaywall();
+            }
         });
-
-        setButtonLoading(btn, false);
-
-        if (error) {
-            alert(t('js_error') + " " + error.message);
-            return;
-        }
-
-        if (data.success) {
-            currentGroup.isArchived = false;
-            loadGroupDetail(currentGroup.id);
-            renderGroupsScreen(); // Update the list in the background
-        } else if (data.error_code === 'LIMIT_REACHED') {
-            alert(t('js_err_unarchive_limit'));
-            showPaywall();
-        }
     });
 
     // Leave Group
     document.getElementById('leave-group-btn').addEventListener('click', async () => {
         if (!currentGroup) return;
-        if (!confirm(t('js_confirm_leave_group'))) return;
+        showConfirm(t('btn_leave_group'), t('js_confirm_leave_group'), async () => {
+            const btn = document.getElementById('leave-group-btn');
+            setButtonLoading(btn, true, t('btn_leave_group'));
 
-        const btn = document.getElementById('leave-group-btn');
-        setButtonLoading(btn, true, t('btn_leave_group'));
+            const { data, error } = await supabaseClient.rpc('leave_group', {
+                p_group_id: currentGroup.id
+            });
 
-        const { data, error } = await supabaseClient.rpc('leave_group', {
-            p_group_id: currentGroup.id
+            setButtonLoading(btn, false);
+
+            if (error) {
+                alert(t('js_error') + " " + error.message);
+                return;
+            }
+
+            if (data.success) {
+                navigateGroupBack();
+                renderGroupsScreen();
+            } else if (data.error_code === 'HAS_DEBTS') {
+                alert(t('js_err_leave_debts'));
+            }
         });
-
-        setButtonLoading(btn, false);
-
-        if (error) {
-            alert(t('js_error') + " " + error.message);
-            return;
-        }
-
-        if (data.success) {
-            navigateGroupBack();
-            renderGroupsScreen();
-        } else if (data.error_code === 'HAS_DEBTS') {
-            alert(t('js_err_leave_debts'));
-        }
     });
 
     // Tabs inside Group
@@ -2142,7 +2158,11 @@ async function cleanUpSyncDuplicates() {
 
     raw.forEach(e => {
         if (e.is_deleted) return;
-        const key = `${e.date}|${e.amount}|${e.description}`;
+        // Normalize for comparison
+        const normDesc = (e.description || '').toLowerCase().trim();
+        const normAmount = parseFloat(e.amount || 0).toFixed(2);
+        const key = `${e.date}|${normAmount}|${normDesc}`;
+
         if (seen.has(key)) {
             const existing = seen.get(key);
             // If one has group info or cloud_id, favor that one
@@ -2594,7 +2614,7 @@ async function loadGroupDetail(groupId) {
 }
 
 window.deleteGroupExpense = async function (btn, expenseId) {
-    if (confirm(t('js_confirm_delete'))) {
+    showConfirm(t('btn_delete'), t('js_confirm_delete'), async () => {
         setButtonLoading(btn, true);
         const { error } = await supabaseClient.rpc('delete_group_expense', {
             p_group_id: currentGroup.id,
@@ -2603,7 +2623,7 @@ window.deleteGroupExpense = async function (btn, expenseId) {
         setButtonLoading(btn, false);
         if (error) alert("Erro ao apagar despesa de grupo: " + error.message);
         else loadGroupDetail(currentGroup.id);
-    }
+    });
 }
 
 window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
@@ -2612,7 +2632,7 @@ window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
         return;
     }
 
-    if (confirm(`${t('js_confirm_settle_debt')} ${amount.toFixed(2)} €?`)) {
+    showConfirm(t('js_settle_btn'), `${t('js_confirm_settle_debt')} ${amount.toFixed(2)} €?`, async () => {
         setButtonLoading(btn, true);
         const { error } = await supabaseClient.rpc('settle_debt', {
             p_group_id: currentGroup.id,
@@ -2623,7 +2643,7 @@ window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
         setButtonLoading(btn, false);
         if (error) alert(`${t('js_err_settle')}` + error.message);
         else loadGroupDetail(currentGroup.id);
-    }
+    });
 }
 
 async function fetchGroupExpensesForMonth(year, month) {

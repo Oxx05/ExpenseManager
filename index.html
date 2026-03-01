@@ -296,13 +296,27 @@
                 <h3 data-i18n="delete_expense_title">Eliminar despesa</h3>
                 <p id="delete-modal-text" data-i18n="delete_recurring_text">Esta despesa é recorrente. O que queres
                     fazer?</p>
-                <div class="modal-actions">
+                <div class="modal-actions" style="flex-direction: column;">
                     <button id="delete-one-btn" class="btn-modal" data-i18n="delete_only_this">Só esta</button>
                     <button id="delete-from-btn" class="btn-modal btn-modal-danger" data-i18n="delete_from_here">Desta
                         em diante</button>
                     <button id="delete-all-btn" class="btn-modal btn-modal-danger" data-i18n="delete_all">Todas</button>
-                    <button id="delete-cancel-btn" class="btn-modal btn-modal-cancel"
+                    <button id="delete-cancel-btn" class="btn-modal btn-modal-cancel" data-i18n="btn_cancel"
+                        style="margin-top: 5px;">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======= GENERIC CONFIRM MODAL ======= -->
+        <div id="confirm-modal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <h3 id="confirm-modal-title" data-i18n="confirm_title">Confirmar</h3>
+                <p id="confirm-modal-text"></p>
+                <div class="modal-actions">
+                    <button id="confirm-cancel-btn" class="btn-modal btn-modal-cancel"
                         data-i18n="btn_cancel">Cancelar</button>
+                    <button id="confirm-ok-btn" class="btn-modal"
+                        style="background: var(--primary); color: white;">OK</button>
                 </div>
             </div>
         </div>

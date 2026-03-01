@@ -42,6 +42,8 @@ const translations = {
         "btn_delete": "Eliminar",
         "btn_add": "Adicionar",
         "btn_cancel": "Cancelar",
+        "btn_ok": "OK",
+        "confirm_title": "Confirmar",
         "btn_invite": "Convidar",
         // Delete Modal
         "delete_expense_title": "Eliminar despesa",
@@ -235,6 +237,8 @@ const translations = {
         "btn_delete": "Delete",
         "btn_add": "Add",
         "btn_cancel": "Cancel",
+        "btn_ok": "OK",
+        "confirm_title": "Confirm",
         "btn_invite": "Invite",
         // Delete Modal
         "delete_expense_title": "Delete Expense",
