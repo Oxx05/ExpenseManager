@@ -2,6 +2,28 @@
    GESTOR DE DESPESAS — Application Logic (v2)
    ================================================================ */
 
+// --- Toast Notification System ---
+function showToast(message, type = 'error', duration = 4000) {
+    const container = document.getElementById('toast-container');
+    if (!container) { alert(message); return; }
+
+    const icons = { error: '❌', success: '✅', warning: '⚠️', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.style.setProperty('--toast-duration', `${duration}ms`);
+    toast.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <div class="toast-body"><div class="toast-msg">${message}</div></div>
+        <button class="toast-close" onclick="this.closest('.toast').remove()">✕</button>
+        <div class="toast-progress"></div>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('removing');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, duration);
+}
+
 // --- Estado global ---
 let currentYear, currentMonth;
 let summaryYear, summaryMonth;
@@ -533,7 +555,7 @@ async function saveExpense(e) {
 
         // Validate: weekly must have at least 1 day selected
         if (recurringType === 'weekly' && (!expense.recurringParams.weeklyDays || expense.recurringParams.weeklyDays.length === 0)) {
-            alert('Seleciona pelo menos um dia da semana para a repetição semanal.');
+            showToast('Seleciona pelo menos um dia da semana para a repetição semanal.', 'warning');
             return;
         }
     }
@@ -903,7 +925,7 @@ async function addCategory() {
     if (!name) return;
     try {
         if (categoriesCache.find(c => c.name.toLowerCase() === name.toLowerCase())) {
-            alert(t('js_cat_exists'));
+            showToast(t('js_cat_exists'), 'warning');
             return;
         }
         await db.addCategory({ name, icon, color });
@@ -919,7 +941,7 @@ async function addCategory() {
 
         categoriesCache = await db.getAllCategories();
         renderCategories();
-    } catch { alert('Erro ao adicionar categoria.'); }
+    } catch { showToast('Erro ao adicionar categoria.'); }
 }
 
 // ============================================
@@ -1211,7 +1233,7 @@ async function exportExcel() {
     const from = document.getElementById('export-from').value;
     const to = document.getElementById('export-to').value;
 
-    if (!from || !to) { alert(t('js_select_dates')); return; }
+    if (!from || !to) { showToast(t('js_select_dates'), 'warning'); return; }
 
     const btn = document.getElementById('export-btn');
     setButtonLoading(btn, true, t('js_exporting') || 'A exportar...');
@@ -1222,7 +1244,7 @@ async function exportExcel() {
     categoriesCache = await db.getAllCategories();
     categoriesCache.push({ id: 'group_expense', name: t('js_group_badge') || 'Grupo', icon: '👥', color: '#7f5af0' });
 
-    if (expenses.length === 0) { setButtonLoading(btn, false); alert(t('js_no_exp_period')); return; }
+    if (expenses.length === 0) { setButtonLoading(btn, false); showToast(t('js_no_exp_period'), 'info'); return; }
 
     // --- Build Matrix 1: Daily (Selected Range) ---
     const dowNamesShort = ['Dom', '2F', '3F', '4F', '5F', '6F', 'Sáb'];
@@ -1531,13 +1553,13 @@ async function createCheckoutSession() {
         if (data.url) {
             window.location.href = data.url;
         } else {
-            alert('Não foi possível iniciar o pagamento. Tenta novamente mais tarde.');
+            showToast('Não foi possível iniciar o pagamento. Tenta novamente mais tarde.');
             btn.textContent = oldText;
             btn.disabled = false;
         }
     } catch (err) {
         console.error(err);
-        alert('Erro ao ligar ao servidor de pagamentos.');
+        showToast('Erro ao ligar ao servidor de pagamentos.');
         btn.textContent = oldText;
         btn.disabled = false;
     }
@@ -1630,7 +1652,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('create-group-modal').classList.add('hidden');
             renderGroupsScreen();
         } else {
-            alert(t('js_err_create_group'));
+            showToast(t('js_err_create_group'));
         }
     });
 
@@ -1658,7 +1680,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setButtonLoading(btn, false);
 
         if (error) {
-            alert(t('js_error') + " " + error.message);
+            showToast(t('js_error') + ' ' + error.message);
             return;
         }
 
@@ -1683,9 +1705,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
             } else if (data.error_code === 'ALREADY_MEMBER') {
-                alert(t('js_err_invite_member'));
+                showToast(t('js_err_invite_member'), 'warning');
             } else if (data.error_code === 'LIMIT_REACHED') {
-                alert(t('js_err_invite_limit'));
+                showToast(t('js_err_invite_limit'), 'warning');
             }
         }
     });
@@ -1704,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setButtonLoading(btn, false);
 
             if (error) {
-                alert(t('js_error') + " " + error.message);
+                showToast(t('js_error') + ' ' + error.message);
                 return;
             }
 
@@ -1728,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setButtonLoading(btn, false);
 
             if (error) {
-                alert(t('js_error') + " " + error.message);
+                showToast(t('js_error') + ' ' + error.message);
                 return;
             }
 
@@ -1737,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 loadGroupDetail(currentGroup.id);
                 renderGroupsScreen(); // Update the list in the background
             } else if (data.error_code === 'LIMIT_REACHED') {
-                alert(t('js_err_unarchive_limit'));
+                showToast(t('js_err_unarchive_limit'), 'warning');
                 showPaywall();
             }
         });
@@ -1757,7 +1779,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             setButtonLoading(btn, false);
 
             if (error) {
-                alert(t('js_error') + " " + error.message);
+                showToast(t('js_error') + ' ' + error.message);
                 return;
             }
 
@@ -1765,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 navigateGroupBack();
                 renderGroupsScreen();
             } else if (data.error_code === 'HAS_DEBTS') {
-                alert(t('js_err_leave_debts'));
+                showToast(t('js_err_leave_debts'), 'warning');
             }
         });
     });
@@ -1806,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .lte('date', monthEnd);
 
             if (count >= 5) {
-                alert(t('js_free_expense_limit') || `Atingiste o limite de 5 despesas de grupo por m\u00eas no plano gratuito.`);
+                showToast(t('js_free_expense_limit') || 'Atingiste o limite de 5 despesas de grupo por mês no plano gratuito.', 'warning');
                 showPaywall();
                 return;
             }
@@ -1993,7 +2015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const paidBy = document.getElementById('group-expense-payer').value;
 
         const checkedBoxes = document.querySelectorAll('.split-checkbox:checked');
-        if (checkedBoxes.length === 0 || total <= 0) return alert(t('js_invalid_expense'));
+        if (checkedBoxes.length === 0 || total <= 0) { showToast(t('js_invalid_expense'), 'warning'); return; }
 
         let sumSplits = 0;
         const splits = [];
@@ -2005,7 +2027,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (Math.abs(sumSplits - total) > 0.05) {
-            return alert(`A soma das divisões (${sumSplits.toFixed(2)} €) não corresponde ao total exato da fatura (${total.toFixed(2)} €). Por favor, ajusta os valores.`);
+            showToast(`A soma das divisões (${sumSplits.toFixed(2)} €) não corresponde ao total (${total.toFixed(2)} €). Ajusta os valores.`, 'warning'); return;
         }
 
         const btn = document.getElementById('group-expense-form').querySelector('button[type="submit"]');
@@ -2023,7 +2045,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setButtonLoading(btn, false);
         if (error) {
             console.error(error);
-            alert(`${t('js_err_save')} ` + error.message);
+            showToast(`${t('js_err_save')} ` + error.message);
         } else {
             loadGroupDetail(currentGroup.id);
             navigateTo('group-detail');
@@ -2380,8 +2402,8 @@ function updateAuthUI() {
                                     ${statusHtml}
                                 </div>
                                 <div style="display:flex; gap:8px; margin-top:8px;">
-                                    <button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>
-                                    ${(!isCancelling && endDate) ? `<button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;"><i class="fas fa-times"></i></button>` : ''}
+                                    ${data.stripe_customer_id ? `<button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>` : ''}
+                                    ${(!isCancelling && endDate) ? `<button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px 12px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
                                 </div>
                             </div>
                         `;
@@ -2399,9 +2421,9 @@ function updateAuthUI() {
                                     });
                                     const resData = await response.json();
                                     if (resData.url) window.location.href = resData.url;
-                                    else alert("Erro ao abrir portal: " + (resData.error || 'Unknown error'));
+                                    else showToast(t('js_error') + ' ' + (resData.error || 'Unknown error'));
                                 } catch (e) {
-                                    alert("Erro: " + e.message);
+                                    showToast(t('js_error') + ' ' + e.message);
                                 } finally {
                                     setButtonLoading(manageBtn, false);
                                 }
@@ -2416,7 +2438,7 @@ function updateAuthUI() {
                                     const { error } = await supabaseClient.from('subscriptions').update({
                                         cancel_at_period_end: true
                                     }).eq('user_id', currentUser.id);
-                                    if (error) alert(t('js_error') + ' ' + error.message);
+                                    if (error) showToast(t('js_error') + ' ' + error.message);
                                     else updateAuthUI();
                                 });
                             });
@@ -2441,9 +2463,9 @@ function updateAuthUI() {
                                     });
                                     const resData = await response.json();
                                     if (resData.url) window.location.href = resData.url;
-                                    else alert("Erro ao abrir checkout: " + (resData.error || 'Unknown error'));
+                                    else showToast(t('js_error') + ' ' + (resData.error || 'Unknown error'));
                                 } catch (e) {
-                                    alert("Erro: " + e.message);
+                                    showToast(t('js_error') + ' ' + e.message);
                                 } finally {
                                     setButtonLoading(upgradeBtn, false);
                                 }
@@ -2513,7 +2535,7 @@ function updateAuthUI() {
                 setButtonLoading(btn, false);
 
                 if (error) {
-                    alert(`${t('js_err_save')} ${error.message}`);
+                    showToast(`${t('js_err_save')} ${error.message}`);
                 } else {
                     document.getElementById('account-name-header').textContent = nameVal || currentUser.email;
 
@@ -2569,7 +2591,7 @@ function updateAuthUI() {
 
                 } catch (err) {
                     console.error(err);
-                    alert(`${t('js_err_save')} Imagem de Capa (${err.message})`);
+                    showToast(`${t('js_err_save')} Imagem de Capa (${err.message})`);
                     avatarDiv.innerHTML = oldContent;
                     avatarDiv.style.backgroundImage = oldBg;
                 }
@@ -2640,7 +2662,7 @@ async function renderGroupsScreen() {
 }
 
 window.showLockedGroupAlert = function () {
-    alert(t('pro_locked_group_alert'));
+    showToast(t('pro_locked_group_alert'), 'warning');
     showPaywall();
 }
 
@@ -2868,7 +2890,7 @@ window.deleteGroupExpense = async function (btn, expenseId) {
             p_expense_id: expenseId
         });
         setButtonLoading(btn, false);
-        if (error) alert("Erro ao apagar despesa de grupo: " + error.message);
+        if (error) showToast(t('js_error') + ' ' + error.message);
         else {
             loadGroupDetail(currentGroup.id);
             renderCalendar();
@@ -2879,7 +2901,7 @@ window.deleteGroupExpense = async function (btn, expenseId) {
 
 window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
     if (currentGroup?.isArchived) {
-        alert(t('js_error') + " Grupo Arquivado (Apenas Leitura).");
+        showToast(t('js_error') + ' Grupo Arquivado (Apenas Leitura).', 'warning');
         return;
     }
 
@@ -2892,7 +2914,7 @@ window.settleDebt = async function (btn, debtor_id, creditor_id, amount) {
             p_amount: amount
         });
         setButtonLoading(btn, false);
-        if (error) alert(`${t('js_err_settle')}` + error.message);
+        if (error) showToast(`${t('js_err_settle')}` + error.message);
         else loadGroupDetail(currentGroup.id);
     });
 }
