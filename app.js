@@ -391,8 +391,10 @@ function openAddExpense(dateStr = null) {
     document.getElementById('add-title').textContent = 'Nova Despesa';
     document.getElementById('expense-form').reset();
     document.getElementById('expense-id').value = '';
+    document.getElementById('expense-recurring').checked = false;
     document.getElementById('delete-btn').classList.add('hidden');
     document.getElementById('recurring-options').classList.add('hidden');
+    hideAllRecurringConfigs();
 
     // Pre-fill date from calendar selection or today
     const date = dateStr || new Date().toISOString().slice(0, 10);
@@ -846,8 +848,13 @@ async function renderSummary() {
 
     const prevByCat = {};
     prevExpenses.forEach(e => {
-        if (!prevByCat[e.categoryId]) prevByCat[e.categoryId] = 0;
-        prevByCat[e.categoryId] += e.amount;
+        let cid = String(e.categoryId);
+        if (!cid.startsWith('group_expense_') && !categoriesCache.some(c => String(c.id) === cid)) {
+            const fallbackCat = categoriesCache.find(c => c.name.toLowerCase() === 'outros' || c.name.toLowerCase() === 'others');
+            cid = fallbackCat ? String(fallbackCat.id) : 'fallback';
+        }
+        if (!prevByCat[cid]) prevByCat[cid] = 0;
+        prevByCat[cid] += e.amount;
     });
 
     const comparisonEl = document.getElementById('summary-comparison');
@@ -869,8 +876,13 @@ async function renderSummary() {
 
     const byCat = {};
     expenses.forEach(e => {
-        if (!byCat[e.categoryId]) byCat[e.categoryId] = 0;
-        byCat[e.categoryId] += e.amount;
+        let cid = String(e.categoryId);
+        if (!cid.startsWith('group_expense_') && !categoriesCache.some(c => String(c.id) === cid)) {
+            const fallbackCat = categoriesCache.find(c => c.name.toLowerCase() === 'outros' || c.name.toLowerCase() === 'others');
+            cid = fallbackCat ? String(fallbackCat.id) : 'fallback';
+        }
+        if (!byCat[cid]) byCat[cid] = 0;
+        byCat[cid] += e.amount;
     });
 
     const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
@@ -1075,15 +1087,21 @@ async function exportExcel() {
         daysInRange.push(new Date(d));
     }
 
+    // Helper to standardize category names and prevent duplicates
+    const getExportCatName = (e) => {
+        if (e.isGroupExpense && e.groupName) return e.groupName;
+        let cid = String(e.categoryId);
+        let cat = categoriesCache.find(c => String(c.id) === cid);
+        if (!cat) {
+            cat = categoriesCache.find(c => c.name.toLowerCase() === 'outros' || c.name.toLowerCase() === 'others') || { name: t('js_others') || 'Outros' };
+        }
+        return cat.name;
+    };
+
     // Collect categories
     const catNames = new Set();
     expenses.forEach(e => {
-        if (e.isGroupExpense && e.groupName) {
-            catNames.add(e.groupName);
-        } else {
-            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-            catNames.add(cat.name);
-        }
+        catNames.add(getExportCatName(e));
     });
     const categoryList = [...catNames].sort();
 
@@ -1091,13 +1109,7 @@ async function exportExcel() {
     const matrixDaily = {};
     categoryList.forEach(cn => matrixDaily[cn] = {});
     expenses.forEach(e => {
-        let catName;
-        if (e.isGroupExpense && e.groupName) {
-            catName = e.groupName;
-        } else {
-            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-            catName = cat.name;
-        }
+        const catName = getExportCatName(e);
         if (!matrixDaily[catName][e.date]) matrixDaily[catName][e.date] = 0;
         matrixDaily[catName][e.date] += e.amount;
     });
@@ -1179,13 +1191,8 @@ async function exportExcel() {
     const matrixMonthly = {};
     categoryList.forEach(cn => matrixMonthly[cn] = {});
     expenses.forEach(e => {
-        let catName;
-        if (e.isGroupExpense && e.groupName) {
-            catName = e.groupName;
-        } else {
-            const cat = categoriesCache.find(c => String(c.id) === String(e.categoryId)) || { name: t('js_others') || 'Outros' };
-            catName = cat.name;
-        }
+        const catName = getExportCatName(e);
+        const dateObj = new Date(e.date + 'T00:00:00');
         const monthKey = e.date.substring(0, 7);
         if (!matrixMonthly[catName][monthKey]) matrixMonthly[catName][monthKey] = 0;
         matrixMonthly[catName][monthKey] += e.amount;
