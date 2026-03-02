@@ -1530,6 +1530,31 @@ function formatCurrency(amount) {
 function showPaywall() {
     const modal = document.getElementById('paywall-modal');
     if (modal) modal.classList.remove('hidden');
+    // Reset to monthly by default when opening
+    selectPlan('monthly');
+}
+
+// Plan toggle state
+let selectedPlanPrice = 'price_1T6FvwCnM4wZXaMWsz4HUgGj'; // monthly default
+
+function selectPlan(plan) {
+    const monthlyBtn = document.getElementById('plan-monthly-btn');
+    const yearlyBtn = document.getElementById('plan-yearly-btn');
+    if (!monthlyBtn || !yearlyBtn) return;
+
+    if (plan === 'yearly') {
+        selectedPlanPrice = 'price_1T6KIRCnM4wZXaMWJoce5rd4';
+        yearlyBtn.style.background = 'var(--accent)';
+        yearlyBtn.style.color = 'white';
+        monthlyBtn.style.background = 'transparent';
+        monthlyBtn.style.color = 'var(--text-dim)';
+    } else {
+        selectedPlanPrice = 'price_1T6FvwCnM4wZXaMWsz4HUgGj';
+        monthlyBtn.style.background = 'var(--accent)';
+        monthlyBtn.style.color = 'white';
+        yearlyBtn.style.background = 'transparent';
+        yearlyBtn.style.color = 'var(--text-dim)';
+    }
 }
 
 async function createCheckoutSession() {
@@ -1545,7 +1570,8 @@ async function createCheckoutSession() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 userId: currentUser.id,
-                email: currentUser.email
+                email: currentUser.email,
+                priceId: selectedPlanPrice
             })
         });
 
@@ -2408,24 +2434,41 @@ function updateAuthUI() {
                             </div>
                         `;
 
-                        // Manage subscription (Stripe Portal)
+                        // Manage subscription — show modal first
                         const manageBtn = document.getElementById('manage-subscription-btn');
                         if (manageBtn) {
-                            manageBtn.addEventListener('click', async () => {
-                                setButtonLoading(manageBtn, true);
-                                try {
-                                    const response = await fetch('/api/create-portal', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ customerId: data.stripe_customer_id })
+                            manageBtn.addEventListener('click', () => {
+                                const modal = document.getElementById('manage-sub-modal');
+                                if (modal) modal.classList.remove('hidden');
+
+                                // Wire up the portal button inside the modal
+                                const portalBtn = document.getElementById('open-portal-btn');
+                                if (portalBtn) {
+                                    // Remove old listeners by cloning
+                                    const newBtn = portalBtn.cloneNode(true);
+                                    portalBtn.parentNode.replaceChild(newBtn, portalBtn);
+
+                                    newBtn.addEventListener('click', async () => {
+                                        if (!data.stripe_customer_id) {
+                                            showToast(t('js_error') + ' Stripe customer ID em falta.', 'warning');
+                                            return;
+                                        }
+                                        setButtonLoading(newBtn, true);
+                                        try {
+                                            const response = await fetch('/api/create-portal', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ customerId: data.stripe_customer_id })
+                                            });
+                                            const resData = await response.json();
+                                            if (resData.url) window.location.href = resData.url;
+                                            else showToast(t('js_error') + ' ' + (resData.error || 'Unknown error'));
+                                        } catch (e) {
+                                            showToast(t('js_error') + ' ' + e.message);
+                                        } finally {
+                                            setButtonLoading(newBtn, false);
+                                        }
                                     });
-                                    const resData = await response.json();
-                                    if (resData.url) window.location.href = resData.url;
-                                    else showToast(t('js_error') + ' ' + (resData.error || 'Unknown error'));
-                                } catch (e) {
-                                    showToast(t('js_error') + ' ' + e.message);
-                                } finally {
-                                    setButtonLoading(manageBtn, false);
                                 }
                             });
                         }

@@ -222,7 +222,18 @@ const translations = {
         "btn_cancel_subscription": "Cancelar Renovação",
         "btn_upgrade_pro": "Fazer Upgrade para PRO",
         "confirm_cancel_sub_title": "Cancelar Renovação",
-        "confirm_cancel_sub_text": "A tua subscrição ficará ativa até ao final do período atual, mas não será renovada. Tens a certeza?"
+        "confirm_cancel_sub_text": "A tua subscrição ficará ativa até ao final do período atual, mas não será renovada. Tens a certeza?",
+        "plan_toggle_monthly": "Mensal",
+        "plan_toggle_yearly": "Anual",
+        "plan_save_badge": "POUPA 37%",
+        "manage_sub_title": "Gerir Subscrição",
+        "manage_sub_desc": "Acede ao portal seguro do Stripe para gerir a tua subscrição PRO.",
+        "manage_sub_payment": "Alterar método de pagamento",
+        "manage_sub_plan": "Alterar plano (Mensal ↔ Anual)",
+        "manage_sub_invoices": "Ver faturas e histórico",
+        "manage_sub_cancel": "Cancelar subscrição",
+        "manage_sub_open_portal": "Abrir Portal de Gestão",
+        "btn_close": "Fechar"
     },
     en: {
         // App
@@ -447,7 +458,18 @@ const translations = {
         "btn_cancel_subscription": "Cancel Renewal",
         "btn_upgrade_pro": "Upgrade to PRO",
         "confirm_cancel_sub_title": "Cancel Renewal",
-        "confirm_cancel_sub_text": "Your subscription will stay active until the end of the current period, but will not renew. Are you sure?"
+        "confirm_cancel_sub_text": "Your subscription will stay active until the end of the current period, but will not renew. Are you sure?",
+        "plan_toggle_monthly": "Monthly",
+        "plan_toggle_yearly": "Yearly",
+        "plan_save_badge": "SAVE 37%",
+        "manage_sub_title": "Manage Subscription",
+        "manage_sub_desc": "Access the secure Stripe portal to manage your PRO subscription.",
+        "manage_sub_payment": "Change payment method",
+        "manage_sub_plan": "Switch plan (Monthly ↔ Yearly)",
+        "manage_sub_invoices": "View invoices and history",
+        "manage_sub_cancel": "Cancel subscription",
+        "manage_sub_open_portal": "Open Management Portal",
+        "btn_close": "Close"
     }
 };
 

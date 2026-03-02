@@ -17,17 +17,20 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { userId, email } = req.body;
+        const { userId, email, priceId } = req.body;
 
         if (!userId || !email) {
             return res.status(400).json({ error: 'Missing userId or email' });
         }
 
+        // Default to monthly plan if no priceId provided
+        const selectedPrice = priceId || 'price_1T6FvwCnM4wZXaMWsz4HUgGj';
+
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
             line_items: [
                 {
-                    price: 'price_1T6FvwCnM4wZXaMWsz4HUgGj', // Gestor de Despesas PRO (New Account)
+                    price: selectedPrice,
                     quantity: 1,
                 },
             ],
