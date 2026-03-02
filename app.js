@@ -362,7 +362,7 @@ async function showDayDetail(dateStr, expenses) {
                 <div class="expense-item-desc">${expense.description}</div>
                 ${expense.isGroupExpense ? `<span style="font-size:10px; background:#7f5af033; color:#7f5af0; padding:2px 6px; border-radius:4px;">${t('js_group_badge')}</span>` : ''}
             </div>
-            ${recurringLabel ? `<div class="expense-item-recurring"><i class="fas fa-sync-alt" style="font-size:11px;"></i> ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
+            ${recurringLabel ? `<div class="expense-item-recurring"><i class="fas fa-sync-alt" style="font-size:11px; color:#32b3ff; margin-right:3px;"></i> ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
         </div>
       </div>
       <div class="expense-item-amount">${formatCurrency(expense.amount)}</div>
@@ -744,7 +744,7 @@ async function renderCategories() {
         if (isPro) {
             budgetHtml = `
             <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
-                <span style="font-size:11px; color:var(--text-muted);"><i class="fas fa-bullseye"></i></span>
+                <span style="font-size:14px; color:var(--accent);"><i class="fas fa-piggy-bank"></i></span>
                 <input type="number" step="1" min="0" placeholder="${t('budget_placeholder') || 'Orçamento'}"
                     class="budget-input" data-cat-id="${cat.id}"
                     value="${cat.budget || ''}"
@@ -889,7 +889,7 @@ async function renderCategories() {
                     <div style="flex:1;">
                       <div class="category-item-name" style="font-size:14px;">${expense.description || cat.name}</div>
                       <div class="category-item-count" style="color: var(--primary-light); font-weight: 600; font-size: 11px;">
-                        <i class="fas fa-sync-alt" style="font-size:9px; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
+                        <i class="fas fa-sync-alt" style="font-size:9px; color:#32b3ff; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
                       </div>
                       <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${expense.date.split('-').reverse().join('/')}</div>
                     </div>
