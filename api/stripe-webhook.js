@@ -34,10 +34,19 @@ export default async function handler(req, res) {
 
     let event;
 
+    console.log('[Webhook] Received request');
+    console.log('[Webhook] Env check:', {
+        hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
+        hasWebhookSecret: !!webhookSecret,
+        hasSupabaseUrl: !!process.env.SUPABASE_URL,
+        hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
+
     try {
         event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+        console.log('[Webhook] Event verified:', event.type);
     } catch (err) {
-        console.error(`Webhook Error: ${err.message}`);
+        console.error(`[Webhook] Signature verification FAILED: ${err.message}`);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -47,13 +56,17 @@ export default async function handler(req, res) {
         const userId = session.client_reference_id;
         const subscriptionId = session.subscription;
 
+        console.log('[Webhook] checkout.session.completed:', { userId, subscriptionId, customer: session.customer });
+
         if (userId && subscriptionId) {
             // Fetch subscription details from Stripe
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
             const plan = subscription.items.data[0].plan;
 
+            console.log('[Webhook] Updating Supabase for user:', userId, 'plan:', plan.interval);
+
             // Upgrade user to PRO in Supabase with full details
-            const { error } = await supabase
+            const { data: updateData, error, count } = await supabase
                 .from('subscriptions')
                 .update({
                     is_pro: true,
@@ -67,10 +80,12 @@ export default async function handler(req, res) {
                 .eq('user_id', userId);
 
             if (error) {
-                console.error('Error updating Supabase subscription:', error);
+                console.error('[Webhook] Supabase update FAILED:', error);
                 return res.status(500).json({ error: 'Database update failed' });
             }
-            console.log(`Successfully upgraded user ${userId} to PRO (${plan.interval})`);
+            console.log(`[Webhook] SUCCESS — upgraded user ${userId} to PRO (${plan.interval})`);
+        } else {
+            console.warn('[Webhook] Missing userId or subscriptionId:', { userId, subscriptionId });
         }
     } else if (event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;

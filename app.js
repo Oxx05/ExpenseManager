@@ -2453,23 +2453,7 @@ function updateAuthUI() {
 
                         const upgradeBtn = document.getElementById('upgrade-pro-btn');
                         if (upgradeBtn) {
-                            upgradeBtn.addEventListener('click', async () => {
-                                setButtonLoading(upgradeBtn, true);
-                                try {
-                                    const response = await fetch('/api/create-checkout', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
-                                    });
-                                    const resData = await response.json();
-                                    if (resData.url) window.location.href = resData.url;
-                                    else showToast(t('js_error') + ' ' + (resData.error || 'Unknown error'));
-                                } catch (e) {
-                                    showToast(t('js_error') + ' ' + e.message);
-                                } finally {
-                                    setButtonLoading(upgradeBtn, false);
-                                }
-                            });
+                            upgradeBtn.addEventListener('click', () => showPaywall());
                         }
                     }
                     subSection.classList.remove('hidden');
