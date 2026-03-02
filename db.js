@@ -267,55 +267,67 @@ class ExpenseDB {
      * Gera despesas reais a partir de recorrentes até hoje.
      */
     async processRecurring() {
-        const all = await this.getAllExpenses();
-        const today = new Date().toISOString().slice(0, 10);
-        const recurring = all.filter(e => e.isRecurring && e.recurringType && e.recurringType !== 'none');
+        if (this._isProcessingRecurring) return;
+        this._isProcessingRecurring = true;
 
-        for (const expense of recurring) {
-            let nextDate = expense.nextOccurrence || expense.date;
-            let safety = 500;
+        try {
+            const all = await this.getAllExpenses();
+            const today = new Date().toISOString().slice(0, 10);
+            const recurring = all.filter(e => e.isRecurring && e.recurringType && e.recurringType !== 'none');
 
-            while (nextDate <= today && safety-- > 0) {
-                // Stop if we hit recurringUntil
-                if (expense.recurringUntil && nextDate > expense.recurringUntil) break;
+            for (const expense of recurring) {
+                let nextDate = expense.nextOccurrence || expense.date;
+                let safety = 500;
+                let updated = false;
 
-                // Stop if this specific occurrence was deleted
-                if (expense.recurringParams?.deletedDates?.includes(nextDate)) {
+                while (nextDate <= today && safety-- > 0) {
+                    // Stop if we hit recurringUntil
+                    if (expense.recurringUntil && nextDate > expense.recurringUntil) break;
+
+                    // Stop if this specific occurrence was deleted
+                    if (expense.recurringParams?.deletedDates?.includes(nextDate)) {
+                        const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
+                        nextDate = d.toISOString().slice(0, 10);
+                        updated = true;
+                        continue;
+                    }
+
+                    const exists = all.some(e =>
+                        e.date === nextDate &&
+                        (e.description === expense.description ||
+                            e.parentId === expense.id ||
+                            (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id === expense.cloud_id)
+                        ) &&
+                        e.id !== expense.id
+                    );
+
+                    if (!exists && nextDate !== expense.date) {
+                        const newId = await this.addExpense({
+                            amount: expense.amount,
+                            description: expense.description,
+                            categoryId: expense.categoryId,
+                            date: nextDate,
+                            isRecurring: false,
+                            recurringType: 'none',
+                            nextOccurrence: null,
+                            parentId: expense.id,
+                            cloud_parent_id: expense.cloud_id || null
+                        });
+                        all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id, cloud_parent_id: expense.cloud_id || null });
+                    }
+
                     const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
                     nextDate = d.toISOString().slice(0, 10);
-                    continue;
+                    updated = true;
                 }
 
-                const exists = all.some(e =>
-                    e.date === nextDate &&
-                    (e.description === expense.description ||
-                        e.parentId === expense.id ||
-                        (e.cloud_parent_id && expense.cloud_id && e.cloud_parent_id === expense.cloud_id)
-                    ) &&
-                    e.id !== expense.id
-                );
-
-                if (!exists && nextDate !== expense.date) {
-                    const newId = await this.addExpense({
-                        amount: expense.amount,
-                        description: expense.description,
-                        categoryId: expense.categoryId,
-                        date: nextDate,
-                        isRecurring: false,
-                        recurringType: 'none',
-                        nextOccurrence: null,
-                        parentId: expense.id,
-                        cloud_parent_id: expense.cloud_id || null
-                    });
-                    all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id, cloud_parent_id: expense.cloud_id || null });
+                if (updated) {
+                    expense.nextOccurrence = nextDate;
+                    await this.updateExpense(expense);
                 }
-
-                const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
-                nextDate = d.toISOString().slice(0, 10);
             }
-
-            expense.nextOccurrence = nextDate;
-            await this.updateExpense(expense);
+        } finally {
+            this._isProcessingRecurring = false;
         }
     }
 

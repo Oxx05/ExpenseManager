@@ -744,12 +744,12 @@ async function renderCategories() {
         if (isPro) {
             budgetHtml = `
             <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
-                <span style="font-size:11px; color:var(--text-muted);">🎯</span>
+                <span style="font-size:11px; color:var(--text-muted);"><i class="fas fa-bullseye"></i></span>
                 <input type="number" step="1" min="0" placeholder="${t('budget_placeholder') || 'Orçamento'}"
                     class="budget-input" data-cat-id="${cat.id}"
                     value="${cat.budget || ''}"
                     style="width:80px; padding:3px 6px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:11px; text-align:right;">
-                <span style="font-size:11px; color:var(--text-muted);">€/mês</span>
+                <span style="font-size:11px; color:var(--text-muted);">${t('js_budget_per_month')}</span>
             </div>`;
         }
 
@@ -758,7 +758,7 @@ async function renderCategories() {
         <div class="category-item-icon" style="background:${cat.color}22">${cat.icon}</div>
         <div>
           <div class="category-item-name">${cat.name}</div>
-          <div class="category-item-count">${count} despesas · ${formatCurrency(total)}</div>
+          <div class="category-item-count">${count} ${t('js_expenses_count')} · ${formatCurrency(total)}</div>
           ${budgetHtml}
         </div>
       </div>
