@@ -63,7 +63,11 @@ export default async function handler(req, res) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
             const plan = subscription.items.data[0].plan;
 
-            console.log('[Webhook] Updating Supabase for user:', userId, 'plan:', plan.interval);
+            console.log('[Webhook] Updating Supabase for user:', userId, 'plan:', plan.interval, 'period_end:', subscription.current_period_end);
+
+            const periodEnd = subscription.current_period_end
+                ? new Date(subscription.current_period_end * 1000).toISOString()
+                : null;
 
             // Upgrade user to PRO in Supabase with full details
             const { data: updateData, error, count } = await supabase
@@ -73,7 +77,7 @@ export default async function handler(req, res) {
                     stripe_customer_id: session.customer,
                     stripe_subscription_id: subscriptionId,
                     plan_interval: plan.interval, // 'month' or 'year'
-                    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                    current_period_end: periodEnd,
                     cancel_at_period_end: subscription.cancel_at_period_end,
                     updated_at: new Date().toISOString()
                 })
@@ -97,7 +101,9 @@ export default async function handler(req, res) {
             .update({
                 is_pro: subscription.status === 'active' || subscription.status === 'trialing',
                 plan_interval: plan.interval,
-                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                current_period_end: subscription.current_period_end
+                    ? new Date(subscription.current_period_end * 1000).toISOString()
+                    : null,
                 cancel_at_period_end: subscription.cancel_at_period_end,
                 updated_at: new Date().toISOString()
             })
