@@ -69,10 +69,11 @@ export default async function handler(req, res) {
                 ? new Date(subscription.current_period_end * 1000).toISOString()
                 : null;
 
-            // Upgrade user to PRO in Supabase with full details
+            // Upgrade user to PRO in Supabase (upsert: creates row if missing)
             const { data: updateData, error, count } = await supabase
                 .from('subscriptions')
-                .update({
+                .upsert({
+                    user_id: userId,
                     is_pro: true,
                     stripe_customer_id: session.customer,
                     stripe_subscription_id: subscriptionId,
@@ -80,8 +81,7 @@ export default async function handler(req, res) {
                     current_period_end: periodEnd,
                     cancel_at_period_end: subscription.cancel_at_period_end,
                     updated_at: new Date().toISOString()
-                })
-                .eq('user_id', userId);
+                }, { onConflict: 'user_id' });
 
             if (error) {
                 console.error('[Webhook] Supabase update FAILED:', error);
