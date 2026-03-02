@@ -7,7 +7,7 @@ function showToast(message, type = 'error', duration = 4000) {
     const container = document.getElementById('toast-container');
     if (!container) { alert(message); return; }
 
-    const icons = { error: '❌', success: '✅', warning: '⚠️', info: 'ℹ️' };
+    const icons = { error: '<i class="fas fa-times-circle"></i>', success: '<i class="fas fa-check-circle"></i>', warning: '<i class="fas fa-exclamation-triangle"></i>', info: '<i class="fas fa-info-circle"></i>' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.style.setProperty('--toast-duration', `${duration}ms`);
@@ -362,7 +362,7 @@ async function showDayDetail(dateStr, expenses) {
                 <div class="expense-item-desc">${expense.description}</div>
                 ${expense.isGroupExpense ? `<span style="font-size:10px; background:#7f5af033; color:#7f5af0; padding:2px 6px; border-radius:4px;">${t('js_group_badge')}</span>` : ''}
             </div>
-            ${recurringLabel ? `<div class="expense-item-recurring">🔄 ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
+            ${recurringLabel ? `<div class="expense-item-recurring"><i class="fas fa-sync-alt" style="font-size:11px;"></i> ${recurringLabel}${isProjected ? ' (auto)' : ''}</div>` : ''}
         </div>
       </div>
       <div class="expense-item-amount">${formatCurrency(expense.amount)}</div>
@@ -763,8 +763,8 @@ async function renderCategories() {
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
-        <button class="category-edit-btn" data-id="${cat.id}" title="${t('js_edit_cat')}" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px;">✏️</button>
-        <button class="category-delete-btn" data-id="${cat.id}" title="Eliminar" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px;">🗑️</button>
+        <button class="category-edit-btn" data-id="${cat.id}" title="${t('js_edit_cat')}" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px; color:var(--text-dim);"><i class="fas fa-pen"></i></button>
+        <button class="category-delete-btn" data-id="${cat.id}" title="Eliminar" style="background:none; border:none; cursor:pointer; font-size:16px; padding:4px;"><i class="fas fa-trash-alt" style="color:var(--danger);"></i></button>
       </div>
     `;
         list.appendChild(item);
@@ -894,7 +894,7 @@ async function renderCategories() {
                       <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${expense.date.split('-').reverse().join('/')}</div>
                     </div>
                   </div>
-                  <button class="category-delete-btn recurring-delete-btn" data-id="${expense.id}" title="Eliminar Recorrência">🗑️</button>
+                  <button class="category-delete-btn recurring-delete-btn" data-id="${expense.id}" title="Eliminar Recorrência"><i class="fas fa-trash-alt" style="color:var(--danger);"></i></button>
                 `;
                 recurringList.appendChild(item);
 
@@ -1085,7 +1085,7 @@ async function renderSummary() {
             let badgeLabel = `${budgetPct.toFixed(0)}%`;
             if (budgetPct >= 90) {
                 badgeColor = 'var(--danger)';
-                badgeLabel = budgetPct >= 100 ? `⚠️ ${budgetPct.toFixed(0)}%` : badgeLabel;
+                badgeLabel = budgetPct >= 100 ? `<i class="fas fa-exclamation-triangle"></i> ${budgetPct.toFixed(0)}%` : badgeLabel;
             } else if (budgetPct >= 70) {
                 badgeColor = '#f0a500';
             }
@@ -2427,7 +2427,7 @@ function updateAuthUI() {
                         subSection.innerHTML = `
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                    <span style="font-weight:700; color:var(--text);">🌟 ${planLabel}</span>
+                                    <span style="font-weight:700; color:var(--text);"><i class="fas fa-crown" style="color:#ffd700; margin-right:4px;"></i> ${planLabel}</span>
                                     ${statusHtml}
                                 </div>
                                 <div style="display:flex; gap:8px; margin-top:8px;">
@@ -2493,7 +2493,7 @@ function updateAuthUI() {
                         subSection.innerHTML = `
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px; text-align:center;">
                                 <div style="font-weight:600; color:var(--text-dim); margin-bottom:12px;">${t('plan_free')}</div>
-                                <button id="upgrade-pro-btn" class="btn-small" style="width:100%; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:700;">✨ ${t('btn_upgrade_pro')}</button>
+                                <button id="upgrade-pro-btn" class="btn-small" style="width:100%; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:700;"><i class="fas fa-crown" style="margin-right:4px;"></i> ${t('btn_upgrade_pro')}</button>
                             </div>
                         `;
 
@@ -2760,7 +2760,7 @@ async function loadGroupDetail(groupId) {
 
     if (!debts || debts.length === 0) {
         debtsList.innerHTML = `<div style="text-align:center; padding:30px 20px; color:var(--text-dim); background:var(--bg-input); border-radius:12px; margin-bottom:30px;">
-            <div style="font-size:32px; margin-bottom:10px;">🎉</div>
+            <div style="font-size:28px; margin-bottom:10px; color:var(--success);"><i class="fas fa-check-circle"></i></div>
             <div style="font-weight:600; margin-bottom:5px;">Tudo liquidado!</div>
             <div style="font-size:12px;">Não há dívidas pendentes neste grupo.</div>
         </div>`;
@@ -3216,17 +3216,17 @@ function setupSearch() {
 
     const slides = [
         {
-            emoji: '📅',
+            emoji: '<i class="fas fa-calendar-alt"></i>',
             title: t('onboarding_1_title') || 'Calendário',
             desc: t('onboarding_1_desc') || 'Vê as tuas despesas organizadas por dia. Toca num dia para ver detalhes ou adiciona novas despesas com o botão +.'
         },
         {
-            emoji: '🏷️',
+            emoji: '<i class="fas fa-tags"></i>',
             title: t('onboarding_2_title') || 'Categorias',
             desc: t('onboarding_2_desc') || 'Organiza as tuas despesas por categorias personalizadas. Define orçamentos mensais para controlar os gastos.'
         },
         {
-            emoji: '👥',
+            emoji: '<i class="fas fa-users"></i>',
             title: t('onboarding_3_title') || 'Grupos',
             desc: t('onboarding_3_desc') || 'Partilha despesas com amigos e família. Divide contas automaticamente e vê quem deve o quê.'
         }
@@ -3237,7 +3237,7 @@ function setupSearch() {
     if (!overlay) return;
 
     function showSlide(index) {
-        document.getElementById('onboarding-emoji').textContent = slides[index].emoji;
+        document.getElementById('onboarding-emoji').innerHTML = slides[index].emoji;
         document.getElementById('onboarding-title').textContent = slides[index].title;
         document.getElementById('onboarding-desc').textContent = slides[index].desc;
 
@@ -3251,7 +3251,7 @@ function setupSearch() {
         // Update button text
         const nextBtn = document.getElementById('onboarding-next-btn');
         if (index === slides.length - 1) {
-            nextBtn.textContent = t('btn_start') || 'Começar! 🚀';
+            nextBtn.textContent = t('btn_start') || 'Começar!';
         } else {
             nextBtn.textContent = t('btn_next') || 'Seguinte';
         }

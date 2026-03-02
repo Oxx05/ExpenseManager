@@ -1,7 +1,7 @@
 const translations = {
     pt: {
         // App
-        "app_title": "💰 Despesas",
+        "app_title": "Despesas",
         // Calendar Tab
         "month_total_label": "Total do mês",
         "day_mon": "Seg",
@@ -58,7 +58,7 @@ const translations = {
         "summary_title": "Resumo",
         "summary_total": "Total",
         // Groups Tab
-        "groups_title": "👥 Grupos",
+        "groups_title": "Grupos",
         "logout_tooltip": "Sair da Conta",
         "restricted_access": "Acesso Restrito",
         "restricted_desc": "Precisas de ter sessão iniciada para usar os Grupos Partilhados.",
@@ -81,7 +81,7 @@ const translations = {
         "group_exp_splits": "Divisão em partes iguais",
         "btn_save_group_exp": "Guardar Despesa",
         // Account Tab
-        "account_title": "👤 Conta",
+        "account_title": "Conta",
         "your_account": "A Tua Conta",
         "account_desc": "Inicia sessão para sincronizar os teus grupos e dados partilhados.",
         "email_address": "Endereço de Email",
@@ -104,7 +104,7 @@ const translations = {
         "nav_groups": "Grupos",
         "nav_account": "Conta",
         // Paywall
-        "pro_title": "Desbloqueia o Premium 🌟",
+        "pro_title": "Desbloqueia o Premium",
         "pro_desc": "Passa para a versão PRO e leva a tua gestão de despesas ao máximo nível.",
         "pro_groups": "Grupos Partilhados Ilimitados",
         "pro_categories": "Categorias Personalizadas Ilimitadas",
@@ -135,7 +135,7 @@ const translations = {
         "js_no_groups": "Ainda não pertenceste a nenhum grupo.",
         "js_creator": "Criador",
         "js_member": "Membro",
-        "js_all_settled_debts": "Tudo saldado! Ninguém deve nada. 🎉",
+        "js_all_settled_debts": "Tudo saldado! Ninguém deve nada.",
         "js_someone": "Alguém",
         "js_btn_pay": "Pagar",
         "js_no_group_expenses": "Ainda não há despesas neste grupo.",
@@ -192,7 +192,7 @@ const translations = {
         "onboarding_3_desc": "Partilha despesas com amigos e família. Divide contas automaticamente e vê quem deve o quê.",
         "btn_next": "Seguinte",
         "btn_skip": "Saltar tutorial",
-        "btn_start": "Começar! 🚀",
+        "btn_start": "Começar!",
         // Recurring display
         "js_daily": "Diário",
         "js_weekly": "Semanal",
@@ -239,7 +239,7 @@ const translations = {
     },
     en: {
         // App
-        "app_title": "💰 Expenses",
+        "app_title": "Expenses",
         // Calendar Tab
         "month_total_label": "Month Total",
         "day_mon": "Mon",
@@ -296,7 +296,7 @@ const translations = {
         "summary_title": "Summary",
         "summary_total": "Total",
         // Groups Tab
-        "groups_title": "👥 Groups",
+        "groups_title": "Groups",
         "logout_tooltip": "Sign Out",
         "restricted_access": "Restricted Access",
         "restricted_desc": "You need to be signed in to use Shared Groups.",
@@ -319,7 +319,7 @@ const translations = {
         "group_exp_splits": "Split equally",
         "btn_save_group_exp": "Save Expense",
         // Account Tab
-        "account_title": "👤 Account",
+        "account_title": "Account",
         "your_account": "Your Account",
         "account_desc": "Sign in to securely sync your groups and shared data.",
         "email_address": "Email Address",
@@ -342,7 +342,7 @@ const translations = {
         "nav_groups": "Groups",
         "nav_account": "Account",
         // Paywall
-        "pro_title": "Unlock Premium 🌟",
+        "pro_title": "Unlock Premium",
         "pro_desc": "Upgrade to PRO and take your expense management to the highest level.",
         "pro_groups": "Unlimited Shared Groups",
         "pro_categories": "Unlimited Custom Categories",
@@ -373,7 +373,7 @@ const translations = {
         "js_no_groups": "You are not part of any group yet.",
         "js_creator": "Creator",
         "js_member": "Member",
-        "js_all_settled_debts": "All settled! No one owes anything. 🎉",
+        "js_all_settled_debts": "All settled! No one owes anything.",
         "js_someone": "Someone",
         "js_btn_pay": "Pay",
         "js_no_group_expenses": "No expenses in this group yet.",
@@ -430,7 +430,7 @@ const translations = {
         "onboarding_3_desc": "Share expenses with friends and family. Split bills automatically and see who owes what.",
         "btn_next": "Next",
         "btn_skip": "Skip tutorial",
-        "btn_start": "Let's go! 🚀",
+        "btn_start": "Let's go!",
         // Recurring display
         "js_daily": "Daily",
         "js_weekly": "Weekly",
