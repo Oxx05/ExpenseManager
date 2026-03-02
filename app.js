@@ -1540,6 +1540,7 @@ let selectedPlanPrice = 'price_1T6FvwCnM4wZXaMWsz4HUgGj'; // monthly default
 function selectPlan(plan) {
     const monthlyBtn = document.getElementById('plan-monthly-btn');
     const yearlyBtn = document.getElementById('plan-yearly-btn');
+    const upgradeBtn = document.getElementById('upgrade-btn');
     if (!monthlyBtn || !yearlyBtn) return;
 
     if (plan === 'yearly') {
@@ -1548,12 +1549,14 @@ function selectPlan(plan) {
         yearlyBtn.style.color = 'white';
         monthlyBtn.style.background = 'transparent';
         monthlyBtn.style.color = 'var(--text-dim)';
+        if (upgradeBtn) upgradeBtn.querySelector('span').textContent = t('btn_upgrade_yearly');
     } else {
         selectedPlanPrice = 'price_1T6FvwCnM4wZXaMWsz4HUgGj';
         monthlyBtn.style.background = 'var(--accent)';
         monthlyBtn.style.color = 'white';
         yearlyBtn.style.background = 'transparent';
         yearlyBtn.style.color = 'var(--text-dim)';
+        if (upgradeBtn) upgradeBtn.querySelector('span').textContent = t('btn_upgrade_monthly');
     }
 }
 
