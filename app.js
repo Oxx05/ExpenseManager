@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupCalendarNav();
     setupCalendarSwipe();
+    setupGroupTabsSwipe();
     setupExpenseForm();
     setupDeleteModal();
     setupCategoryForm();
@@ -226,6 +227,39 @@ function setupCalendarSwipe() {
             }
             closeDayDetail();
             renderCalendar();
+        }
+    }, { passive: true });
+}
+
+// --- Swipe para trocar separadores de grupo ---
+function setupGroupTabsSwipe() {
+    const screen = document.getElementById('screen-group-detail');
+    if (!screen) return;
+
+    screen.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    screen.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        const dy = e.changedTouches[0].clientY - touchStartY;
+
+        // Only trigger if horizontal swipe is dominant and big enough
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            const tabs = document.querySelectorAll('.group-tab');
+            if (tabs.length !== 2) return;
+
+            // Check which tab is currently active
+            const isExpensesActive = tabs[0].classList.contains('active');
+
+            if (dx < 0 && isExpensesActive) {
+                // swipe left (while on expenses) → go to balances
+                tabs[1].click();
+            } else if (dx > 0 && !isExpensesActive) {
+                // swipe right (while on balances) → go to expenses
+                tabs[0].click();
+            }
         }
     }, { passive: true });
 }
@@ -2761,8 +2795,8 @@ async function loadGroupDetail(groupId) {
     if (!debts || debts.length === 0) {
         debtsList.innerHTML = `<div style="text-align:center; padding:30px 20px; color:var(--text-dim); background:var(--bg-input); border-radius:12px; margin-bottom:30px;">
             <div style="font-size:28px; margin-bottom:10px; color:var(--success);"><i class="fas fa-check-circle"></i></div>
-            <div style="font-weight:600; margin-bottom:5px;">Tudo liquidado!</div>
-            <div style="font-size:12px;">Não há dívidas pendentes neste grupo.</div>
+            <div style="font-weight:600; margin-bottom:5px;">${t('js_all_settled_title') || 'Tudo liquidado!'}</div>
+            <div style="font-size:12px;">${t('js_all_settled_desc') || 'Não há dívidas pendentes neste grupo.'}</div>
         </div>`;
     } else {
         debts.forEach(d => {
@@ -2819,8 +2853,8 @@ async function loadGroupDetail(groupId) {
     if (!expenses || expenses.length === 0) {
         expensesList.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--text-dim); background:var(--bg-input); border-radius:12px; margin-top:20px;">
             <div style="font-size:32px; margin-bottom:10px;">🧾</div>
-            <div style="font-weight:600; margin-bottom:5px;">Nenhuma despesa</div>
-            <div style="font-size:12px;">Clica no botão + para adicionar a primeira despesa do grupo.</div>
+            <div style="font-weight:600; margin-bottom:5px;">${t('js_no_expenses_title') || 'Nenhuma despesa'}</div>
+            <div style="font-size:12px;">${t('js_no_expenses_desc') || 'Clica no botão + para adicionar a primeira despesa do grupo.'}</div>
         </div>`;
     } else {
         expenses.forEach(e => {
