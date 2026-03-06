@@ -2385,8 +2385,8 @@ async function syncExpenses() {
                 const cloudTime = new Date(se.updated_at).getTime();
                 const localTime = new Date(localMatch.updated_at).getTime();
 
-                if (cloudTime > localTime && !localMatch.is_deleted) {
-                    // Update local with cloud data
+                if (cloudTime > localTime) {
+                    // Cloud is newer — update local (even if local was deleted, cloud wins)
                     await db.updateExpense({
                         ...localMatch,
                         amount: se.amount,
@@ -2398,8 +2398,25 @@ async function syncExpenses() {
                         recurringParams: se.recurring_params,
                         cloud_id: se.id,
                         cloud_parent_id: se.parent_id,
+                        is_deleted: false,
                         updated_at: se.updated_at
                     });
+                } else if (!localMatch.cloud_id) {
+                    // Link local to cloud if cloud_id is missing
+                    localMatch.cloud_id = se.id;
+                    await db.updateExpense(localMatch);
+                }
+            }
+        }
+
+        // 1b. Detect cloud deletions: local expenses with cloud_id that no longer exist in Supabase
+        for (const le of localExpenses) {
+            if (le.cloud_id && !le.is_deleted) {
+                const stillInCloud = supaExpenses.some(se => se.id === le.cloud_id);
+                if (!stillInCloud) {
+                    // Deleted on another device — delete locally too
+                    const tx = db.db.transaction('expenses', 'readwrite');
+                    tx.objectStore('expenses').delete(le.id);
                 }
             }
         }
