@@ -1036,12 +1036,14 @@ async function renderSummary() {
     const allExpenses = [...localExpenses, ...groupExpenses];
     categoriesCache = categories;
 
-    // Only count expenses up to today (future recurring should not count)
+    // Only count expenses up to today — future projected ones should not count
     // Use local date to avoid UTC mismatch near midnight
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isFutureMonth = (summaryYear > now.getFullYear()) || (summaryYear === now.getFullYear() && summaryMonth > now.getMonth());
     const isCurrentMonth = (summaryYear === now.getFullYear() && summaryMonth === now.getMonth());
-    const expenses = isCurrentMonth ? allExpenses.filter(e => e.date <= today) : allExpenses;
+    // Past months: show everything. Current/future months: only up to today.
+    const expenses = (isCurrentMonth || isFutureMonth) ? allExpenses.filter(e => e.date <= today) : allExpenses;
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
