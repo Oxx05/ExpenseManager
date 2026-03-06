@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { userId, email, priceId } = req.body;
+        const { userId, email, priceId, coupon } = req.body;
 
         if (!userId || !email) {
             return res.status(400).json({ error: 'Missing userId or email' });
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         // Default to monthly plan if no priceId provided
         const selectedPrice = priceId || 'price_1T6FvwCnM4wZXaMWsz4HUgGj';
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionConfig = {
             customer_email: email,
             line_items: [
                 {
@@ -35,12 +35,17 @@ export default async function handler(req, res) {
                 },
             ],
             mode: 'subscription',
-            // Defaulting to origin or the Vercel app
             success_url: `${req.headers.origin || 'https://expense-manager-brown-psi.vercel.app'}?checkout=success`,
             cancel_url: `${req.headers.origin || 'https://expense-manager-brown-psi.vercel.app'}?checkout=cancel`,
-            // Essential to link the Stripe transaction back to the Supabase database
             client_reference_id: userId,
-        });
+        };
+
+        // Apply coupon/promotion code if provided (for flash sales)
+        if (coupon) {
+            sessionConfig.discounts = [{ coupon }];
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionConfig);
 
         res.status(200).json({ url: session.url });
     } catch (err) {

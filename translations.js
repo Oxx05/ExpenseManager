@@ -178,7 +178,7 @@ const translations = {
         "modal_create_group_placeholder": "Ex: Casa, Férias, Escritório...",
         "btn_cancel": "Cancelar",
         "btn_create": "Criar",
-        "js_free_expense_limit": "Atingiste o limite de 5 despesas de grupo por mês no plano gratuito.",
+        "js_free_expense_limit": "Atingiste o limite de despesas de grupo por mês no plano gratuito.",
         "js_exporting": "A exportar...",
         "chart_daily_trend": "Tendência Diária",
         "pro_charts_hint": "Desbloqueia gráficos detalhados com o PRO",
@@ -241,7 +241,44 @@ const translations = {
         "manage_sub_invoices": "Ver faturas e histórico",
         "manage_sub_cancel": "Cancelar subscrição",
         "manage_sub_open_portal": "Abrir Portal de Gestão",
-        "btn_close": "Fechar"
+        "btn_close": "Fechar",
+        // Trial
+        "plan_trial": "Trial Premium",
+        "trial_title": "Experimenta o Premium!",
+        "trial_desc": "7 dias grátis. Sem cartão. Sem compromisso.",
+        "trial_btn": "Ativar Trial Gratuito",
+        "trial_activated": "Trial Premium ativado! Aproveita 7 dias grátis.",
+        "trial_already_used": "Já usaste o teu trial gratuito.",
+        "days_left": "dias restantes",
+        "trial_ended_title": "O teu Trial acabou!",
+        "trial_ended_desc": "Gostaste? Faz upgrade agora e ganha 20% de desconto! Oferta válida por 48 horas.",
+        "trial_ended_coupon_hint": "Aplica automaticamente no checkout",
+        "trial_ended_btn": "Fazer Upgrade com 20% OFF",
+        "btn_later": "Talvez mais tarde",
+        // Streak
+        "streak_days": "dias seguidos!",
+        "streak_reward_hint": "Cada 7 dias = 1 dia de Premium grátis!",
+        "streak_keep_going": "Continua a registar despesas diariamente!",
+        "streak_milestone": "dias seguidos! Ganhaste 1 dia de Premium!",
+        // Referral
+        "referral_title": "Convida Amigos",
+        "referral_desc": "Ambos ganham 3 dias de Premium grátis!",
+        "referral_share_text": "Experimenta esta app de despesas! Usa o meu código e ambos ganhamos Premium grátis!",
+        "referral_copied": "Link copiado!",
+        "referral_success": "Código aplicado! Ambos ganharam 3 dias de Premium.",
+        // Rewarded Ads
+        "ad_watching_title": "Ver Anúncio",
+        "ad_watching_desc": "Vê um anúncio curto para desbloquear esta funcionalidade.",
+        "ad_waiting": "A aguardar...",
+        "ad_reward_granted": "Recompensa desbloqueada!",
+        "ad_watch_btn": "Ver Anúncio",
+        // Limits
+        "limit_reached_title": "Limite Atingido",
+        "limit_reached_desc": "Atingiste o limite de despesas de grupo. Vê um anúncio para adicionar mais uma, ou faz upgrade para Premium ilimitado.",
+        "export_locked_title": "Exportação PRO",
+        "export_locked_desc": "Vê um anúncio para exportar este mês, ou faz upgrade para Premium.",
+        "cat_limit_title": "Limite de Categorias",
+        "cat_limit_desc": "Vê um anúncio para criar mais uma categoria, ou faz upgrade para Premium."
     },
     en: {
         // App
@@ -422,7 +459,7 @@ const translations = {
         "modal_create_group_placeholder": "E.g. Home, Holiday, Office...",
         "btn_cancel": "Cancel",
         "btn_create": "Create",
-        "js_free_expense_limit": "You have reached the limit of 5 group expenses per month on the free plan.",
+        "js_free_expense_limit": "You have reached the group expense limit for the free plan this month.",
         "js_exporting": "Exporting...",
         "chart_daily_trend": "Daily Trend",
         "pro_charts_hint": "Unlock detailed charts with PRO",
@@ -485,7 +522,44 @@ const translations = {
         "manage_sub_invoices": "View invoices and history",
         "manage_sub_cancel": "Cancel subscription",
         "manage_sub_open_portal": "Open Management Portal",
-        "btn_close": "Close"
+        "btn_close": "Close",
+        // Trial
+        "plan_trial": "Premium Trial",
+        "trial_title": "Try Premium!",
+        "trial_desc": "7 days free. No card. No commitment.",
+        "trial_btn": "Activate Free Trial",
+        "trial_activated": "Premium Trial activated! Enjoy 7 free days.",
+        "trial_already_used": "You have already used your free trial.",
+        "days_left": "days left",
+        "trial_ended_title": "Your Trial has ended!",
+        "trial_ended_desc": "Enjoyed it? Upgrade now and get 20% off! Offer valid for 48 hours.",
+        "trial_ended_coupon_hint": "Applied automatically at checkout",
+        "trial_ended_btn": "Upgrade with 20% OFF",
+        "btn_later": "Maybe later",
+        // Streak
+        "streak_days": "days in a row!",
+        "streak_reward_hint": "Every 7 days = 1 free Premium day!",
+        "streak_keep_going": "Keep logging expenses daily!",
+        "streak_milestone": "days in a row! You earned 1 Premium day!",
+        // Referral
+        "referral_title": "Invite Friends",
+        "referral_desc": "Both get 3 free Premium days!",
+        "referral_share_text": "Try this expense tracker app! Use my code and we both get free Premium!",
+        "referral_copied": "Link copied!",
+        "referral_success": "Code applied! Both earned 3 Premium days.",
+        // Rewarded Ads
+        "ad_watching_title": "Watch Ad",
+        "ad_watching_desc": "Watch a short ad to unlock this feature.",
+        "ad_waiting": "Waiting...",
+        "ad_reward_granted": "Reward unlocked!",
+        "ad_watch_btn": "Watch Ad",
+        // Limits
+        "limit_reached_title": "Limit Reached",
+        "limit_reached_desc": "You reached your group expense limit. Watch an ad to add one more, or upgrade to unlimited Premium.",
+        "export_locked_title": "PRO Export",
+        "export_locked_desc": "Watch an ad to export this month, or upgrade to Premium.",
+        "cat_limit_title": "Category Limit",
+        "cat_limit_desc": "Watch an ad to create one more category, or upgrade to Premium."
     }
 };
 

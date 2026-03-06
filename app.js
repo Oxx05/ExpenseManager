@@ -610,6 +610,19 @@ async function saveExpense(e) {
     setButtonLoading(btn, false);
     syncExpenses();
 
+    // Update streak (server-side)
+    if (currentUser) {
+        try {
+            const { data: streakData } = await supabaseClient.rpc('update_streak');
+            if (streakData?.milestone) {
+                showToast(t('streak_milestone') || `${streakData.streak} dias seguidos! Ganhaste 1 dia de Premium!`, 'success');
+                currentUser.streak_count = streakData.streak;
+            } else if (streakData) {
+                currentUser.streak_count = streakData.streak;
+            }
+        } catch (e) { /* RPC may not exist yet */ }
+    }
+
     // Refresh UI list if on calendar
     if (selectedDayDate) {
         const expenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
@@ -949,8 +962,13 @@ async function renderCategories() {
 }
 
 async function addCategory() {
-    if (!currentUser?.is_pro && categoriesCache.length >= 8) {
-        showPaywall();
+    const extraCats = parseInt(currentUser?.ad_rewards?.categories_extra || 0);
+    if (!currentUser?.is_pro && categoriesCache.length >= (8 + extraCats)) {
+        showConfirm(
+            t('cat_limit_title') || 'Limite de Categorias',
+            t('cat_limit_desc') || 'Vê um anúncio para criar mais uma categoria, ou faz upgrade para Premium.',
+            () => showRewardedAd('category', () => addCategory())
+        );
         return;
     }
     const name = document.getElementById('new-cat-name').value.trim();
@@ -1263,8 +1281,16 @@ function updateExportDates() {
 
 async function exportExcel() {
     if (!currentUser?.is_pro) {
-        showPaywall();
-        return;
+        // Allow 1 free export per month via ad
+        const exportsUsed = parseInt(currentUser?.ad_rewards?.exports_this_month || 0);
+        if (exportsUsed <= 0) {
+            showConfirm(
+                t('export_locked_title') || 'Exportação PRO',
+                t('export_locked_desc') || 'Vê um anúncio para exportar este mês, ou faz upgrade para Premium.',
+                () => showRewardedAd('export', () => exportExcel())
+            );
+            return;
+        }
     }
     const from = document.getElementById('export-from').value;
     const to = document.getElementById('export-to').value;
@@ -1596,7 +1622,7 @@ function selectPlan(plan) {
     }
 }
 
-async function createCheckoutSession() {
+async function createCheckoutSession(couponCode = null) {
     if (!currentUser) return;
     const btn = document.getElementById('upgrade-btn');
     const oldText = btn.textContent;
@@ -1604,14 +1630,17 @@ async function createCheckoutSession() {
     btn.disabled = true;
 
     try {
+        const body = {
+            userId: currentUser.id,
+            email: currentUser.email,
+            priceId: selectedPlanPrice
+        };
+        if (couponCode) body.coupon = couponCode;
+
         const response = await fetch('/api/create-checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: currentUser.id,
-                email: currentUser.email,
-                priceId: selectedPlanPrice
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
@@ -1627,6 +1656,120 @@ async function createCheckoutSession() {
         showToast('Erro ao ligar ao servidor de pagamentos.');
         btn.textContent = oldText;
         btn.disabled = false;
+    }
+}
+
+// ============================================
+// POST-TRIAL FLASH SALE (48h discount)
+// ============================================
+function showPostTrialOffer() {
+    // Only show once per session
+    if (window._postTrialShown) return;
+    window._postTrialShown = true;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'post-trial-modal';
+    modal.innerHTML = `
+        <div class="modal" style="max-width:380px; text-align:center; padding:30px 24px;">
+            <div style="font-size:36px; margin-bottom:12px;"><i class="fas fa-crown" style="color:#ffd700;"></i></div>
+            <h2 style="margin-bottom:8px; font-size:20px;">${t('trial_ended_title') || 'O teu Trial acabou!'}</h2>
+            <p style="color:var(--text-dim); font-size:13px; margin-bottom:20px;">
+                ${t('trial_ended_desc') || 'Gostaste? Faz upgrade agora e ganha 20% de desconto! Oferta válida por 48 horas.'}
+            </p>
+            <div style="background:rgba(255,215,0,0.1); border:1px dashed #ffd700; border-radius:8px; padding:12px; margin-bottom:16px;">
+                <div style="font-size:24px; font-weight:800; color:#ffd700;">-20%</div>
+                <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">${t('trial_ended_coupon_hint') || 'Aplica automaticamente no checkout'}</div>
+            </div>
+            <button id="post-trial-upgrade-btn" class="btn-primary" style="width:100%; padding:14px; font-size:15px; font-weight:700; background:linear-gradient(135deg, #ffd700, #ff8c00); color:#1a1a2e; border:none; border-radius:10px; cursor:pointer; margin-bottom:10px;">
+                <i class="fas fa-crown" style="margin-right:6px;"></i> ${t('trial_ended_btn') || 'Fazer Upgrade com 20% OFF'}
+            </button>
+            <button onclick="this.closest('.modal-overlay').remove()" style="background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:13px; padding:8px;">
+                ${t('btn_later') || 'Talvez mais tarde'}
+            </button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('post-trial-upgrade-btn').addEventListener('click', () => {
+        modal.remove();
+        showPaywall();
+        // The paywall will use the coupon — store it for checkout
+        window._flashSaleCoupon = 'TRIAL20'; // Create this coupon in Stripe dashboard
+    });
+}
+
+// ============================================
+// REWARDED ADS SYSTEM
+// ============================================
+async function showRewardedAd(rewardType, callback) {
+    // Show a "watching ad" simulation UI
+    // In production, integrate Google AdSense Rewarded Ads here
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:340px; text-align:center; padding:30px 24px;">
+            <div style="font-size:32px; margin-bottom:12px;"><i class="fas fa-ad" style="color:var(--accent);"></i></div>
+            <h3 style="margin-bottom:8px;">${t('ad_watching_title') || 'Ver Anúncio'}</h3>
+            <p style="color:var(--text-dim); font-size:12px; margin-bottom:20px;">${t('ad_watching_desc') || 'Vê um anúncio curto para desbloquear esta funcionalidade.'}</p>
+            <div id="ad-timer" style="font-size:28px; font-weight:800; color:var(--accent); margin-bottom:16px;">5</div>
+            <div style="font-size:11px; color:var(--text-muted);">${t('ad_waiting') || 'A aguardar...'}</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Simulated 5-second countdown (replace with real ad SDK)
+    let countdown = 5;
+    const timerEl = document.getElementById('ad-timer');
+    const interval = setInterval(() => {
+        countdown--;
+        if (timerEl) timerEl.textContent = countdown;
+        if (countdown <= 0) {
+            clearInterval(interval);
+            overlay.remove();
+            // Grant reward via server-side RPC
+            grantAdReward(rewardType, callback);
+        }
+    }, 1000);
+}
+
+async function grantAdReward(rewardType, callback) {
+    try {
+        const { data, error } = await supabaseClient.rpc('grant_ad_reward', { p_reward_type: rewardType });
+        if (error) throw error;
+        if (data?.success) {
+            currentUser.ad_rewards = data.rewards;
+            showToast(t('ad_reward_granted') || 'Recompensa desbloqueada!', 'success');
+            if (callback) callback();
+        } else {
+            showToast(t('js_error') + ' ' + (data?.error || ''), 'error');
+        }
+    } catch (e) {
+        showToast(t('js_error') + ' ' + e.message, 'error');
+    }
+}
+
+// ============================================
+// REFERRAL CODE PROCESSING (on login/signup)
+// ============================================
+async function processReferralCode() {
+    const params = new URLSearchParams(window.location.search);
+    const refCode = params.get('ref');
+    if (!refCode || !currentUser) return;
+
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    try {
+        const { data, error } = await supabaseClient.rpc('process_referral', { p_referral_code: refCode });
+        if (error) throw error;
+        if (data?.success) {
+            showToast(t('referral_success') || 'Código aplicado! Ambos ganharam 3 dias de Premium.', 'success');
+            updateAuthUI();
+        }
+    } catch (e) {
+        // Silently fail — code might be invalid or already used
+        console.log('Referral processing:', e.message);
     }
 }
 
@@ -1878,7 +2021,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('group-fab-add').addEventListener('click', async () => {
         if (!currentGroup) return;
 
-        // Free-tier: max 5 group expenses per month
+        // Free-tier: max 3 group expenses per month (+ ad rewards)
         if (!currentUser?.is_pro) {
             const now = new Date();
             const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -1892,9 +2035,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 .gte('date', monthStart)
                 .lte('date', monthEnd);
 
-            if (count >= 5) {
-                showToast(t('js_free_expense_limit') || 'Atingiste o limite de 5 despesas de grupo por mês no plano gratuito.', 'warning');
-                showPaywall();
+            const extraFromAds = parseInt(currentUser.ad_rewards?.group_expenses_extra || 0);
+            const effectiveLimit = 3 + extraFromAds;
+
+            if (count >= effectiveLimit) {
+                // Show option: watch ad to unlock +1
+                showConfirm(
+                    t('limit_reached_title') || 'Limite Atingido',
+                    (t('limit_reached_desc') || 'Atingiste o limite de despesas de grupo. Vê um anúncio para adicionar mais uma, ou faz upgrade para Premium ilimitado.'),
+                    () => showRewardedAd('group_expense', () => addGroupExpenseUI())
+                );
                 return;
             }
         }
@@ -2126,6 +2276,7 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session) {
             currentUser = session.user;
             updateAuthUI();
+            processReferralCode();
             if (document.getElementById('screen-groups') && document.getElementById('screen-groups').classList.contains('active')) renderGroupsScreen();
         } else {
             currentUser = null;
@@ -2432,31 +2583,58 @@ function updateAuthUI() {
                 if (phoneInput) phoneInput.value = displayPhone;
             });
 
-        // Obter status PRO + subscription details
-        supabaseClient.from('subscriptions').select('is_pro, plan_interval, current_period_end, cancel_at_period_end, stripe_customer_id').eq('user_id', currentUser.id).maybeSingle()
-            .then(({ data }) => {
+        // Obter status PRO + subscription details + monetization data
+        supabaseClient.from('subscriptions').select('*').eq('user_id', currentUser.id).maybeSingle()
+            .then(async ({ data }) => {
                 currentUser.is_pro = data?.is_pro || false;
+                currentUser.ad_rewards = data?.ad_rewards || {};
+                currentUser.streak_count = data?.streak_count || 0;
+                currentUser.referral_code = data?.referral_code || '';
+                currentUser.trial_used = data?.trial_used || false;
+                currentUser.trial_end = data?.trial_end ? new Date(data.trial_end) : null;
+
                 const badge = document.getElementById('pro-badge');
                 if (badge) {
                     if (currentUser.is_pro) badge.classList.remove('hidden');
                     else badge.classList.add('hidden');
                 }
 
+                // Check trial expiry (server-side via RPC)
+                try {
+                    const { data: trialData } = await supabaseClient.rpc('check_trial_status');
+                    if (trialData) {
+                        currentUser.is_pro = trialData.is_pro;
+                        if (trialData.trial_expired && !data.stripe_subscription_id) {
+                            // Trial just expired — show flash sale modal
+                            showPostTrialOffer();
+                        }
+                    }
+                } catch (e) { /* RPC may not exist yet, gracefully fail */ }
+
                 // Render subscription section
                 const subSection = document.getElementById('subscription-section');
                 if (subSection) {
                     if (currentUser.is_pro) {
+                        // Check if it's a trial
+                        const isTrial = currentUser.trial_end && currentUser.trial_end > new Date() && !data.stripe_subscription_id;
                         const endDate = data?.current_period_end ? new Date(data.current_period_end).toLocaleDateString() : null;
                         const isCancelling = data?.cancel_at_period_end;
+
                         let statusHtml = '';
-                        if (endDate) {
+                        if (isTrial) {
+                            const daysLeft = Math.ceil((currentUser.trial_end - new Date()) / (1000 * 60 * 60 * 24));
+                            statusHtml = `<span style="font-size:12px; color:#ffd700; font-weight:600;">
+                                <i class="fas fa-clock" style="margin-right:3px;"></i> Trial: ${daysLeft} ${t('days_left') || 'dias restantes'}
+                            </span>`;
+                        } else if (endDate) {
                             statusHtml = `<span style="font-size:12px; color:${isCancelling ? 'var(--danger)' : 'var(--success)'}; font-weight:600;">
                                 ${isCancelling ? t('subscription_cancels_on') + ' ' + endDate : t('subscription_active_until') + ' ' + endDate}
                             </span>`;
                         } else {
                             statusHtml = `<span style="font-size:12px; color:var(--success); font-weight:600;">✓</span>`;
                         }
-                        let planLabel = t('plan_pro');
+
+                        let planLabel = isTrial ? (t('plan_trial') || 'Trial Premium') : t('plan_pro');
                         if (data.plan_interval === 'month') planLabel = t('plan_monthly');
                         if (data.plan_interval === 'year') planLabel = t('plan_yearly');
 
@@ -2469,9 +2647,16 @@ function updateAuthUI() {
                                 <div style="display:flex; gap:8px; margin-top:8px;">
                                     ${data.stripe_customer_id ? `<button id="manage-subscription-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">${t('btn_manage_subscription')}</button>` : ''}
                                     ${(!isCancelling && endDate) ? `<button id="cancel-subscription-row-btn" class="btn-small" style="padding:10px 12px; background:rgba(229,49,112,0.1); color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:13px; cursor:pointer;">${t('btn_cancel_subscription')}</button>` : ''}
+                                    ${isTrial ? `<button id="upgrade-from-trial-btn" class="btn-small" style="flex:1; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;"><i class="fas fa-crown" style="margin-right:4px;"></i> ${t('btn_upgrade_pro')}</button>` : ''}
                                 </div>
                             </div>
                         `;
+
+                        // Upgrade from trial button
+                        const trialUpgradeBtn = document.getElementById('upgrade-from-trial-btn');
+                        if (trialUpgradeBtn) {
+                            trialUpgradeBtn.addEventListener('click', () => showPaywall());
+                        }
 
                         // Manage subscription — show modal first
                         const manageBtn = document.getElementById('manage-subscription-btn');
@@ -2483,7 +2668,6 @@ function updateAuthUI() {
                                 // Wire up the portal button inside the modal
                                 const portalBtn = document.getElementById('open-portal-btn');
                                 if (portalBtn) {
-                                    // Remove old listeners by cloning
                                     const newBtn = portalBtn.cloneNode(true);
                                     portalBtn.parentNode.replaceChild(newBtn, portalBtn);
 
@@ -2526,12 +2710,50 @@ function updateAuthUI() {
                             });
                         }
                     } else {
+                        // FREE PLAN — show trial offer or upgrade button
+                        let trialHtml = '';
+                        if (!currentUser.trial_used) {
+                            trialHtml = `
+                                <div style="background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(127,90,240,0.1)); border:1px solid rgba(255,215,0,0.3); border-radius:12px; padding:16px; margin-bottom:12px; text-align:center;">
+                                    <div style="font-size:24px; margin-bottom:8px;"><i class="fas fa-gift" style="color:#ffd700;"></i></div>
+                                    <div style="font-weight:700; color:var(--text); font-size:15px; margin-bottom:4px;">${t('trial_title') || 'Experimenta o Premium!'}</div>
+                                    <div style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">${t('trial_desc') || '7 dias grátis. Sem cartão. Sem compromisso.'}</div>
+                                    <button id="activate-trial-btn" class="btn-small" style="width:100%; background:linear-gradient(135deg, #ffd700, #ff8c00); border:none; color:#1a1a2e; padding:12px; border-radius:8px; font-size:14px; cursor:pointer; font-weight:700;">
+                                        <i class="fas fa-rocket" style="margin-right:4px;"></i> ${t('trial_btn') || 'Ativar Trial Grátis'}
+                                    </button>
+                                </div>
+                            `;
+                        }
+
                         subSection.innerHTML = `
+                            ${trialHtml}
                             <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px; text-align:center;">
                                 <div style="font-weight:600; color:var(--text-dim); margin-bottom:12px;">${t('plan_free')}</div>
                                 <button id="upgrade-pro-btn" class="btn-small" style="width:100%; background:var(--accent); border:none; color:white; padding:10px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:700;"><i class="fas fa-crown" style="margin-right:4px;"></i> ${t('btn_upgrade_pro')}</button>
                             </div>
                         `;
+
+                        // Trial activation
+                        const trialBtn = document.getElementById('activate-trial-btn');
+                        if (trialBtn) {
+                            trialBtn.addEventListener('click', async () => {
+                                setButtonLoading(trialBtn, true);
+                                try {
+                                    const { data: result, error } = await supabaseClient.rpc('activate_trial');
+                                    if (error) throw error;
+                                    if (result?.success) {
+                                        showToast(t('trial_activated') || 'Trial Premium ativado! Aproveita 7 dias grátis.', 'success');
+                                        updateAuthUI();
+                                    } else {
+                                        showToast(result?.error === 'TRIAL_ALREADY_USED' ? (t('trial_already_used') || 'Já usaste o teu trial gratuito.') : (t('js_error')), 'warning');
+                                    }
+                                } catch (e) {
+                                    showToast(t('js_error') + ' ' + e.message, 'error');
+                                } finally {
+                                    setButtonLoading(trialBtn, false);
+                                }
+                            });
+                        }
 
                         const upgradeBtn = document.getElementById('upgrade-pro-btn');
                         if (upgradeBtn) {
@@ -2539,6 +2761,58 @@ function updateAuthUI() {
                         }
                     }
                     subSection.classList.remove('hidden');
+                }
+
+                // ——— STREAK COUNTER ———
+                const streakSection = document.getElementById('streak-section');
+                if (streakSection) {
+                    const streak = currentUser.streak_count || 0;
+                    streakSection.innerHTML = streak > 0 ? `
+                        <div style="background:var(--bg-input); border-radius:12px; padding:14px 16px; margin-bottom:12px; display:flex; align-items:center; gap:12px;">
+                            <div style="font-size:24px; min-width:36px; text-align:center;"><i class="fas fa-fire" style="color:#ff6b35;"></i></div>
+                            <div style="flex:1;">
+                                <div style="font-weight:700; color:var(--text); font-size:14px;">${streak} ${t('streak_days') || 'dias seguidos!'}</div>
+                                <div style="font-size:11px; color:var(--text-dim);">${streak >= 7 ? (t('streak_reward_hint') || 'Cada 7 dias = 1 dia de Premium grátis!') : (t('streak_keep_going') || 'Continua a registar despesas diariamente!')}</div>
+                            </div>
+                            <div style="font-size:18px; font-weight:800; color:#ff6b35;">${streak}</div>
+                        </div>
+                    ` : '';
+                }
+
+                // ——— REFERRAL SECTION ———
+                const referralSection = document.getElementById('referral-section');
+                if (referralSection && currentUser.referral_code) {
+                    referralSection.innerHTML = `
+                        <div style="background:var(--bg-input); border-radius:12px; padding:16px; margin-bottom:12px;">
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                <i class="fas fa-user-plus" style="font-size:18px; color:var(--accent);"></i>
+                                <div style="font-weight:700; color:var(--text); font-size:14px;">${t('referral_title') || 'Convida Amigos'}</div>
+                            </div>
+                            <div style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">${t('referral_desc') || 'Ambos ganham 3 dias de Premium grátis!'}</div>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <input type="text" readonly value="${currentUser.referral_code}" style="flex:1; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px; color:var(--text); font-weight:700; font-size:13px; text-align:center; letter-spacing:1px;">
+                                <button id="share-referral-btn" class="btn-small" style="background:var(--accent); border:none; color:white; padding:10px 16px; border-radius:8px; font-size:13px; cursor:pointer; font-weight:600;">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    const shareBtn = document.getElementById('share-referral-btn');
+                    if (shareBtn) {
+                        shareBtn.addEventListener('click', async () => {
+                            const shareUrl = `${window.location.origin}?ref=${currentUser.referral_code}`;
+                            const shareText = t('referral_share_text') || `Experimenta esta app de despesas! Usa o meu código ${currentUser.referral_code} e ambos ganhamos Premium grátis!`;
+                            if (navigator.share) {
+                                try {
+                                    await navigator.share({ title: 'ExpenseManager', text: shareText, url: shareUrl });
+                                } catch (e) { /* cancelled */ }
+                            } else {
+                                await navigator.clipboard.writeText(shareUrl);
+                                showToast(t('referral_copied') || 'Link copiado!', 'success');
+                            }
+                        });
+                    }
                 }
             });
 
