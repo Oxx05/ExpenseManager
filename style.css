@@ -31,20 +31,20 @@
 }
 
 :root.light-theme {
-    /* LIGHT THEME */
-    --bg: #f8f9fa;
-    --bg-card: #ffffff;
-    --bg-card-hover: #f1f3f5;
-    --bg-input: #e9ecef;
+    /* LIGHT THEME (Softer, premium feel with purple tint off-white) */
+    --bg: #f2f2f7;
+    --bg-card: #fdfdfd;
+    --bg-card-hover: #f6f6fc;
+    --bg-input: #ebebf2;
     --accent: #6c3fd4;
     --accent-light: #8e62f6;
     --success: #209665;
     --danger: #d41f5a;
-    --warning: #e08500;
-    --text: #1a1a24;
-    --text-dim: #4a5568;
-    --text-muted: #718096;
-    --border: rgba(0, 0, 0, 0.1);
+    --warning: #d97706;
+    --text: #2d2d42;
+    --text-dim: #64647c;
+    --text-muted: #8b8ba3;
+    --border: rgba(108, 63, 212, 0.12); /* Subtle purple-tinted borders */
 }
 
 html,
