@@ -112,10 +112,9 @@ body {
     background: rgba(127, 90, 240, 0.1);
     border: 1px solid rgba(127, 90, 240, 0.2);
     border-radius: var(--radius-sm);
-    color: var(--accent-light);
-    width: 40px;
-    height: 40px;
-    display: flex;
+    width: 20px;
+    color: var(--text);
+    opacity: 0.6;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -237,7 +236,7 @@ body {
 .cal-day.today.current {
     border-color: var(--accent);
     background: var(--accent);
-    color: #ffffff;
+    color: #fff; /* Keeping button text white across themes for contrast */
 }
 
 .cal-day.current {
@@ -384,9 +383,8 @@ body {
     border-radius: 50%;
     margin-right: 2%;
     background: linear-gradient(135deg, var(--accent), #6c3fd4);
-    color: white;
-    border: none;
-    font-size: 28px;
+    color: var(--text);
+    font-size: 24px;
     box-shadow: 0 4px 20px rgba(127, 90, 240, 0.5);
     cursor: pointer;
     z-index: 20;
@@ -1165,8 +1163,8 @@ select:hover:not(:disabled),
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.05); /* Adjusted by theme vars in actual use */
+    color: var(--text);
 }
 
 .member-avatar {
@@ -1249,8 +1247,8 @@ select:hover:not(:disabled),
     padding: 14px 16px;
     border-radius: 12px;
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     pointer-events: all;

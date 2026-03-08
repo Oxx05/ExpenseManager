@@ -536,13 +536,13 @@
                 <div class="form-group">
                     <label data-i18n="group_exp_payer">Quem pagou?</label>
                     <select id="group-expense-payer" required
-                        style="width:100%; padding:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:white; font-size:16px; margin-top:8px; margin-bottom:8px;"></select>
+                        style="width:100%; padding:14px; border-radius:12px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:16px; margin-top:8px; margin-bottom:8px;"></select>
                 </div>
 
                 <div class="form-group">
                     <label data-i18n="group_exp_splits">Divisão em partes iguais</label>
                     <div id="group-expense-splits" class="splits-container"
-                        style="background:rgba(255,255,255,0.03); border-radius:12px; padding:15px; margin-top:8px;">
+                        style="background:var(--bg-input); border-radius:12px; padding:15px; margin-top:8px;">
                         <!-- Gerado dinamicamente no app.js -->
                     </div>
                 </div>
@@ -566,9 +566,9 @@
                     </button>
                     <!-- Language Selector -->
                     <select id="lang-selector" onchange="updateLanguage(this.value)"
-                        style="background:rgba(255,255,255,0.1); color:white; border:none; border-radius:8px; padding:6px 10px; font-weight:600;">
-                        <option value="pt" style="color:black;">PT</option>
-                        <option value="en" style="color:black;">EN</option>
+                        style="background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-weight:600;">
+                        <option value="pt" style="color:var(--text); background:var(--bg-card);">PT</option>
+                        <option value="en" style="color:var(--text); background:var(--bg-card);">EN</option>
                     </select>
                 </div>
             </header>
@@ -721,7 +721,7 @@
                 <div style="display: flex; gap: 10px;">
                     <button onclick="document.getElementById('create-group-modal').classList.add('hidden')"
                         class="btn-small"
-                        style="flex:1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-dim);"
+                        style="flex:1; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim);"
                         data-i18n="btn_cancel">Cancelar</button>
                     <button id="create-group-confirm-btn" class="btn-small"
                         style="flex:1; background: var(--accent); color: white;" data-i18n="btn_create">Criar</button>
@@ -758,30 +758,30 @@
 
                     <ul style="list-style: none; padding: 0; margin-bottom: 22px;">
                         <li
-                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; background: rgba(255,255,255,0.02); padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; background: var(--bg-input); padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border);">
                             <div
                                 style="width: 34px; height: 34px; border-radius: 50%; background: rgba(44,182,125,0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">
                                 <i class="fas fa-users"></i>
                             </div>
-                            <span style="font-size: 14px; font-weight: 600; color: white;" data-i18n="pro_groups">Grupos
+                            <span style="font-size: 14px; font-weight: 600; color: var(--text);" data-i18n="pro_groups">Grupos
                                 Partilhados Ilimitados</span>
                         </li>
                         <li
-                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; background: rgba(255,255,255,0.02); padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; background: var(--bg-input); padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border);">
                             <div
                                 style="width: 34px; height: 34px; border-radius: 50%; background: rgba(44,182,125,0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">
                                 <i class="fas fa-tags"></i>
                             </div>
-                            <span style="font-size: 14px; font-weight: 600; color: white;"
+                            <span style="font-size: 14px; font-weight: 600; color: var(--text);"
                                 data-i18n="pro_categories">Categorias Personalizadas Ilimitadas</span>
                         </li>
                         <li
-                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 8px; background: rgba(255,255,255,0.02); padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                            style="display: flex; align-items: center; gap: 14px; margin-bottom: 8px; background: var(--bg-input); padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border);">
                             <div
                                 style="width: 34px; height: 34px; border-radius: 50%; background: rgba(44,182,125,0.15); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">
                                 <i class="fas fa-file-excel"></i>
                             </div>
-                            <span style="font-size: 14px; font-weight: 600; color: white;"
+                            <span style="font-size: 14px; font-weight: 600; color: var(--text);"
                                 data-i18n="pro_export">Exportação Pessoal em Excel</span>
                         </li>
                     </ul>

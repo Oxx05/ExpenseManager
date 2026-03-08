@@ -2792,14 +2792,20 @@ function updateAuthUI() {
                 const streakSection = document.getElementById('streak-section');
                 if (streakSection) {
                     const streak = currentUser.streak_count || 0;
+                    const daysUntilReward = 7 - (streak % 7);
+                    const rewardText = daysUntilReward === 1 
+                        ? 'Abre a app amanhã para uma surpresa!' 
+                        : `Faltam ${daysUntilReward} dias para a próxima recompensa surpresa!`;
+
                     streakSection.innerHTML = streak > 0 ? `
-                        <div style="background:var(--bg-input); border-radius:12px; padding:14px 16px; margin-bottom:12px; display:flex; align-items:center; gap:12px;">
-                            <div style="font-size:24px; min-width:36px; text-align:center;"><i class="fas fa-fire" style="color:#ff6b35;"></i></div>
-                            <div style="flex:1;">
-                                <div style="font-weight:700; color:var(--text); font-size:14px;">${streak} ${t('streak_days') || 'dias seguidos!'}</div>
-                                <div style="font-size:11px; color:var(--text-dim);">${streak >= 7 ? (t('streak_reward_hint') || 'Cada 7 dias = 1 dia de Premium grátis!') : (t('streak_keep_going') || 'Continua a registar despesas diariamente!')}</div>
+                        <div style="background: linear-gradient(135deg, var(--bg-card), var(--bg-input)); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                            <div style="position: absolute; right: -20px; top: -20px; font-size: 80px; opacity: 0.05; color: #ff6b35;"><i class="fas fa-fire"></i></div>
+                            <div style="font-size: 28px; text-align: center; color: #ff6b35; text-shadow: 0 2px 10px rgba(255,107,53,0.3);"><i class="fas fa-fire"></i></div>
+                            <div style="flex: 1; z-index: 1;">
+                                <div style="font-weight: 800; color: var(--text); font-size: 15px; margin-bottom: 2px;">${streak} Dias de Login!</div>
+                                <div style="font-size: 11px; color: var(--text-dim); font-weight: 500;">Continua a abrir a app todos os dias.</div>
+                                <div style="font-size: 11px; color: var(--warning); font-weight: 700; margin-top: 4px; background: rgba(255, 152, 0, 0.1); display: inline-block; padding: 2px 8px; border-radius: 6px;"><i class="fas fa-gift" style="margin-right:4px;"></i>${rewardText}</div>
                             </div>
-                            <div style="font-size:18px; font-weight:800; color:#ff6b35;">${streak}</div>
                         </div>
                     ` : '';
                 }
