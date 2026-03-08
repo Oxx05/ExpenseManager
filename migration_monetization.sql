@@ -11,7 +11,7 @@ ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS referred_by uuid REFERENCES public.profiles(id),
   ADD COLUMN IF NOT EXISTS ad_rewards jsonb DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS streak_count integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS last_expense_date date;
+  ADD COLUMN IF NOT EXISTS last_login_date date;
 
 -- 2. Referrals tracking table
 CREATE TABLE IF NOT EXISTS public.referrals (
@@ -160,12 +160,12 @@ BEGIN
   END IF;
 
   -- Same day: no change
-  IF v_sub.last_expense_date = v_today THEN
+  IF v_sub.last_login_date = v_today THEN
     RETURN jsonb_build_object('streak', v_sub.streak_count, 'milestone', false);
   END IF;
 
   -- Consecutive day
-  IF v_sub.last_expense_date = v_today - 1 THEN
+  IF v_sub.last_login_date = v_today - 1 THEN
     v_new_streak := v_sub.streak_count + 1;
   ELSE
     v_new_streak := 1;
@@ -184,7 +184,7 @@ BEGIN
 
   UPDATE public.subscriptions 
   SET streak_count = v_new_streak, 
-      last_expense_date = v_today,
+      last_login_date = v_today,
       updated_at = now()
   WHERE user_id = auth.uid();
 

@@ -11,6 +11,7 @@
 }
 
 :root {
+    /* DARK THEME (Default) */
     --bg: #0a0a1a;
     --bg-card: #141428;
     --bg-card-hover: #1c1c38;
@@ -27,6 +28,23 @@
     --radius: 14px;
     --radius-sm: 8px;
     --nav-height: 64px;
+}
+
+:root.light-theme {
+    /* LIGHT THEME */
+    --bg: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1f3f5;
+    --bg-input: #e9ecef;
+    --accent: #6c3fd4;
+    --accent-light: #8e62f6;
+    --success: #209665;
+    --danger: #d41f5a;
+    --warning: #e08500;
+    --text: #1a1a24;
+    --text-dim: #4a5568;
+    --text-muted: #718096;
+    --border: rgba(0, 0, 0, 0.1);
 }
 
 html,

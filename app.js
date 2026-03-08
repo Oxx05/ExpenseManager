@@ -597,31 +597,39 @@ async function saveExpense(e) {
     const btn = document.getElementById('expense-form').querySelector('button[type="submit"]');
     setButtonLoading(btn, true, t('js_btn_save') || 'Guardar');
 
-    if (id) {
-        expense.id = parseInt(id);
-        // Keep parentId if editing a child
-        if (editingExpense?.parentId) expense.parentId = editingExpense.parentId;
-        await db.updateExpense(expense);
-    } else {
-        await db.addExpense(expense);
+    try {
+        if (id && id !== 'undefined' && id !== 'null') {
+            expense.id = parseInt(id);
+            // Preserve essential cloud and recurring metadata
+            if (editingExpense) {
+                if (editingExpense.cloud_id) expense.cloud_id = editingExpense.cloud_id;
+                if (editingExpense.cloud_parent_id) expense.cloud_parent_id = editingExpense.cloud_parent_id;
+                if (editingExpense.parentId) expense.parentId = editingExpense.parentId;
+                if (editingExpense.created_at) expense.created_at = editingExpense.created_at;
+                if (editingExpense.is_deleted !== undefined) expense.is_deleted = editingExpense.is_deleted;
+                if (editingExpense.nextOccurrence) expense.nextOccurrence = editingExpense.nextOccurrence;
+                if (editingExpense.recurringUntil) expense.recurringUntil = editingExpense.recurringUntil;
+            }
+            await db.updateExpense(expense);
+        } else {
+            if (editingExpense) {
+                // We are materializing a projected recurring occurrence
+                expense.parentId = editingExpense.parentId || editingExpense.id;
+                expense.cloud_parent_id = editingExpense.cloud_parent_id || editingExpense.cloud_id;
+            }
+            await db.addExpense(expense);
+        }
+
+        if (isRecurring) await db.processRecurring();
+    } catch (err) {
+        console.error("Error saving expense:", err);
+        showToast("Erro ao guardar despesa.", "error");
+        setButtonLoading(btn, false);
+        return;
     }
 
-    if (isRecurring) await db.processRecurring();
     setButtonLoading(btn, false);
     syncExpenses();
-
-    // Update streak (server-side)
-    if (currentUser) {
-        try {
-            const { data: streakData } = await supabaseClient.rpc('update_streak');
-            if (streakData?.milestone) {
-                showToast(t('streak_milestone') || `${streakData.streak} dias seguidos! Ganhaste 1 dia de Premium!`, 'success');
-                currentUser.streak_count = streakData.streak;
-            } else if (streakData) {
-                currentUser.streak_count = streakData.streak;
-            }
-        } catch (e) { /* RPC may not exist yet */ }
-    }
 
     // Refresh UI list if on calendar
     if (selectedDayDate) {
@@ -3606,3 +3614,26 @@ function setupSearch() {
         showSlide(0);
     }, 800);
 })();
+
+// --- Theme Toggle ---
+function toggleTheme() {
+    const isLight = document.documentElement.classList.toggle('light-theme');
+    localStorage.setItem('appTheme', isLight ? 'light' : 'dark');
+    updateThemeIcon(isLight);
+}
+
+function updateThemeIcon(isLight) {
+    const btn = document.getElementById('theme-toggle-btn');
+    if (!btn) return;
+    if (isLight) {
+        btn.innerHTML = '<i class="fas fa-sun" style="color:var(--text);"></i>';
+    } else {
+        btn.innerHTML = '<i class="fas fa-moon" style="color:var(--text);"></i>';
+    }
+}
+
+// Ensure theme icon is set correctly on load
+document.addEventListener('DOMContentLoaded', () => {
+    const isLight = document.documentElement.classList.contains('light-theme');
+    updateThemeIcon(isLight);
+});

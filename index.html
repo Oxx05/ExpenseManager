@@ -17,8 +17,17 @@
         rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9715313780417793"
         crossorigin="anonymous"></script>
+
+    <!-- Theme Initialization -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('appTheme') || 'dark';
+            if (theme === 'light') document.documentElement.classList.add('light-theme');
+        })();
+    </script>
     <title>Gestor de Despesas</title>
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -546,15 +555,22 @@
 
         <!-- ======= ACCOUNT SCREEN ======= -->
         <div id="screen-account" class="screen">
-            <header class="screen-header">
+            <header class="screen-header" style="justify-content: space-between;">
                 <h1 data-i18n="account_title"><i class="fas fa-user-circle"
                         style="margin-right:6px; color:#bd93f9;"></i> Conta</h1>
-                <!-- Language Selector -->
-                <select id="lang-selector" onchange="updateLanguage(this.value)"
-                    style="background:rgba(255,255,255,0.1); color:white; border:none; border-radius:8px; padding:6px 10px; font-weight:600;">
-                    <option value="pt" style="color:black;">PT</option>
-                    <option value="en" style="color:black;">EN</option>
-                </select>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle Theme"
+                        style="background:rgba(255,255,255,0.1); color:var(--text); border:none; border-radius:8px; width:34px; height:34px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s;">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <!-- Language Selector -->
+                    <select id="lang-selector" onchange="updateLanguage(this.value)"
+                        style="background:rgba(255,255,255,0.1); color:white; border:none; border-radius:8px; padding:6px 10px; font-weight:600;">
+                        <option value="pt" style="color:black;">PT</option>
+                        <option value="en" style="color:black;">EN</option>
+                    </select>
+                </div>
             </header>
 
             <div id="auth-section" class="auth-section" style="padding:20px; text-align:center;">
