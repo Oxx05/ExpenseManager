@@ -1163,7 +1163,9 @@ select:hover:not(:disabled),
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.05); /* Adjusted by theme vars in actual use */
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
     color: var(--text);
 }
 
@@ -1172,6 +1174,7 @@ select:hover:not(:disabled),
     height: 32px;
     border-radius: 50%;
     background: var(--accent);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -2018,7 +2018,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             tab.classList.add('active');
             tab.style.borderBottomColor = 'var(--primary)';
-            tab.style.color = 'white';
+            tab.style.color = 'var(--text)';
 
             document.querySelectorAll('.group-tab-content').forEach(c => c.classList.add('hidden'));
             document.getElementById(`group-${tab.dataset.tab}-tab`).classList.remove('hidden');
