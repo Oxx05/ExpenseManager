@@ -855,7 +855,7 @@ async function renderCategories() {
                   <input type="color" class="edit-cat-color" value="${cat.color}" style="width:36px; height:36px; border:none; border-radius:8px; cursor:pointer; padding:0;">
                 </div>
                 <div style="display:flex; gap:8px; justify-content:flex-end;">
-                  <button class="edit-cat-cancel btn-small" style="padding:6px 14px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text-dim); font-size:12px; cursor:pointer;">${t('btn_cancel')}</button>
+                  <button class="edit-cat-cancel btn-small" style="padding:6px 14px; border-radius:8px; background:transparent; border:1px solid var(--border); color:var(--text-dim); font-size:12px; cursor:pointer;">${t('btn_cancel')}</button>
                   <button class="edit-cat-save btn-small" style="padding:6px 14px; border-radius:8px; background:var(--accent); border:none; color:white; font-size:12px; font-weight:600; cursor:pointer;">${t('btn_save')}</button>
                 </div>
               </div>
@@ -943,7 +943,7 @@ async function renderCategories() {
                     <div class="category-item-icon" style="background:${cat.color}22; font-size:18px;">${cat.icon}</div>
                     <div style="flex:1;">
                       <div class="category-item-name" style="font-size:14px;">${expense.description || cat.name}</div>
-                      <div class="category-item-count" style="color: var(--primary-light); font-weight: 600; font-size: 11px;">
+                      <div class="category-item-count" style="color: var(--accent-light); font-weight: 600; font-size: 11px;">
                         <i class="fas fa-sync-alt" style="font-size:9px; color:#32b3ff; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
                       </div>
                       <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Início: ${expense.date.split('-').reverse().join('/')}</div>
@@ -1233,7 +1233,7 @@ async function renderSummary() {
                 });
 
                 donutContainer.innerHTML = `<svg viewBox="0 0 140 140" style="width:100%;height:100%;">
-                    <circle cx="70" cy="70" r="${radius}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="20"/>
+                    <circle cx="70" cy="70" r="${radius}" fill="none" stroke="var(--border)" stroke-width="20"/>
                     ${arcs}
                     <text x="70" y="70" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="14" font-weight="800">${formatCurrency(total)}</text>
                 </svg>`;
@@ -1256,7 +1256,7 @@ async function renderSummary() {
                 for (let d = 1; d <= lastDay; d++) {
                     const val = byDay[d] || 0;
                     const pct = (val / maxDay) * 100;
-                    const barColor = val > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)';
+                    const barColor = val > 0 ? 'var(--accent)' : 'var(--border)';
                     const minH = val > 0 ? Math.max(pct, 5) : 3;
                     barsHtml += `<div title="Dia ${d}: ${val.toFixed(2)} €" style="flex:1;height:${minH}%;background:${barColor};border-radius:3px 3px 0 0;min-width:3px;transition:height 0.3s ease;cursor:pointer;"></div>`;
                 }
@@ -2017,7 +2017,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 t.style.color = 'var(--text-dim)';
             });
             tab.classList.add('active');
-            tab.style.borderBottomColor = 'var(--primary)';
+            tab.style.borderBottomColor = 'var(--accent)';
             tab.style.color = 'var(--text)';
 
             document.querySelectorAll('.group-tab-content').forEach(c => c.classList.add('hidden'));
@@ -3506,7 +3506,7 @@ function setupSearch() {
             } else {
                 resultsContainer.innerHTML = results.map(e => {
                     const cat = cats.find(c => c.id === e.categoryId) || { icon: '💰', name: t('js_others'), color: '#666' };
-                    return `<div class="search-result-item" data-date="${e.date}" style="display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                    return `<div class="search-result-item" data-date="${e.date}" style="display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; border-bottom:1px solid var(--border); transition: background 0.15s;" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='none'">
                         <div style="width:32px; height:32px; border-radius:50%; background:${cat.color}22; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${cat.icon}</div>
                         <div style="flex:1; min-width:0;">
                             <div style="font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.description}</div>

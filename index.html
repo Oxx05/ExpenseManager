@@ -328,8 +328,8 @@
                 <div class="modal-actions">
                     <button id="confirm-cancel-btn" class="btn-modal btn-modal-cancel"
                         data-i18n="btn_cancel">Cancelar</button>
-                    <button id="confirm-ok-btn" class="btn-modal"
-                        style="background: var(--primary); color: white;">OK</button>
+                    <button type="button" onclick="document.getElementById('welcome-modal').classList.add('hidden')"
+                        style="background: var(--accent); color: white;">OK</button>
                 </div>
             </div>
         </div>
@@ -462,7 +462,7 @@
 
             <div class="group-tabs" style="display:flex; border-bottom:1px solid var(--border);">
                 <button class="group-tab active" data-tab="expenses" data-i18n="tab_expenses"
-                    style="flex:1; padding:15px; background:none; border:none; color:var(--text); font-weight:bold; border-bottom:2px solid var(--primary);">Despesas</button>
+                    style="flex:1; padding:15px; background:none; border:none; color:var(--text); font-weight:bold; border-bottom:2px solid var(--accent);">Despesas</button>
                 <button class="group-tab" data-tab="balances" data-i18n="tab_balances"
                     style="flex:1; padding:15px; background:none; border:none; color:var(--text-dim); font-weight:bold; border-bottom:2px solid transparent;">Saldos
                     & Membros</button>
@@ -607,7 +607,7 @@
                     <h2 style="margin-bottom:5px;">
                         <span id="account-name-header">Utilizador</span>
                         <span id="pro-badge" class="hidden"
-                            style="background:var(--primary); color:white; font-size:12px; padding:2px 8px; border-radius:12px; vertical-align:middle; margin-left:8px; font-weight:bold;">PRO
+                            style="background:var(--accent); color:white; font-size:12px; padding:2px 8px; border-radius:12px; vertical-align:middle; margin-left:8px; font-weight:bold;">PRO
                             <i class="fas fa-crown"></i></span>
                     </h2>
                     <p id="account-email" style="color:var(--text-dim); margin-bottom:20px; font-size:14px;">email</p>
