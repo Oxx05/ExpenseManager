@@ -260,6 +260,11 @@ const translations = {
         "streak_reward_hint": "Cada 7 dias = 1 dia de Premium grátis!",
         "streak_keep_going": "Continua a registar despesas diariamente!",
         "streak_milestone": "dias seguidos! Ganhaste 1 dia de Premium!",
+        "streak_login_days": "Dias de Login!",
+        "streak_keep_opening": "Continua a abrir a app todos os dias.",
+        "streak_reward_tomorrow": "Abre a app amanhã para uma surpresa!",
+        "streak_reward_countdown_1": "Faltam",
+        "streak_reward_countdown_2": "dias para a próxima recompensa surpresa!",
         // Referral
         "referral_title": "Convida Amigos",
         "referral_desc": "Ambos ganham 3 dias de Premium grátis!",
@@ -541,6 +546,11 @@ const translations = {
         "streak_reward_hint": "Every 7 days = 1 free Premium day!",
         "streak_keep_going": "Keep logging expenses daily!",
         "streak_milestone": "days in a row! You earned 1 Premium day!",
+        "streak_login_days": "Login Days!",
+        "streak_keep_opening": "Keep opening the app every day.",
+        "streak_reward_tomorrow": "Open the app tomorrow for a surprise!",
+        "streak_reward_countdown_1": "Only",
+        "streak_reward_countdown_2": "days left for the next surprise reward!",
         // Referral
         "referral_title": "Invite Friends",
         "referral_desc": "Both get 3 free Premium days!",
