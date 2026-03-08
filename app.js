@@ -549,7 +549,7 @@ function renderCategoryPicker() {
         const chip = document.createElement('div');
         chip.className = 'cat-chip';
         chip.dataset.id = cat.id;
-        chip.innerHTML = `<span>${cat.icon}</span> ${cat.name}`;
+        chip.innerHTML = `<span>${cat.icon}</span> ${tc(cat.name)}`;
         chip.addEventListener('click', () => {
             selectedCategoryId = cat.id;
             updateCategoryPickerUI();
@@ -812,7 +812,7 @@ async function renderCategories() {
       <div class="category-item-left">
         <div class="category-item-icon" style="background:${cat.color}22">${cat.icon}</div>
         <div>
-          <div class="category-item-name">${cat.name}</div>
+          <div class="category-item-name">${tc(cat.name)}</div>
           <div class="category-item-count">${count} ${t('js_expenses_count')} · ${formatCurrency(total)}</div>
           ${budgetHtml}
         </div>
@@ -942,7 +942,7 @@ async function renderCategories() {
                   <div class="category-item-left" style="cursor: pointer; flex: 1;">
                     <div class="category-item-icon" style="background:${cat.color}22; font-size:18px;">${cat.icon}</div>
                     <div style="flex:1;">
-                      <div class="category-item-name" style="font-size:14px;">${expense.description || cat.name}</div>
+                      <div class="category-item-name" style="font-size:14px;">${expense.description || tc(cat.name)}</div>
                       <div class="category-item-count" style="color: var(--accent-light); font-weight: 600; font-size: 11px;">
                         <i class="fas fa-sync-alt" style="font-size:9px; color:#32b3ff; margin-right:3px;"></i> ${freqText} · ${formatCurrency(expense.amount)}
                       </div>
@@ -1170,7 +1170,7 @@ async function renderSummary() {
         chartHtml += `
       <div class="chart-bar-row">
         <div class="chart-label" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;">
-            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${cat.icon} ${cat.name}</div>
+            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;">${cat.icon} ${tc(cat.name)}</div>
             ${budgetBadge}
         </div>
         <div class="chart-bar-bg">
@@ -1227,7 +1227,7 @@ async function renderSummary() {
 
                     legendHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
                         <span style="width:10px;height:10px;border-radius:50%;background:${cat.color};flex-shrink:0;"></span>
-                        <span style="color:var(--text-dim);">${cat.icon} ${cat.name}</span>
+                        <span style="color:var(--text-dim);">${cat.icon} ${tc(cat.name)}</span>
                         <span style="color:var(--text);font-weight:600;margin-left:auto;">${((amount / total) * 100).toFixed(0)}%</span>
                     </div>`;
                 });
@@ -1335,7 +1335,7 @@ async function exportExcel() {
         if (!cat) {
             cat = categoriesCache.find(c => c.name.toLowerCase() === 'outros' || c.name.toLowerCase() === 'others') || { name: t('js_others') || 'Outros' };
         }
-        return cat.name;
+        return tc(cat.name);
     };
 
     // Collect categories
@@ -3497,7 +3497,7 @@ function setupSearch() {
 
             const results = allExpenses.filter(e => {
                 const cat = cats.find(c => c.id === e.categoryId);
-                const catName = cat ? cat.name.toLowerCase() : '';
+                const catName = cat ? tc(cat.name).toLowerCase() : '';
                 return e.description.toLowerCase().includes(query) || catName.includes(query);
             }).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 15);
 
@@ -3510,7 +3510,7 @@ function setupSearch() {
                         <div style="width:32px; height:32px; border-radius:50%; background:${cat.color}22; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${cat.icon}</div>
                         <div style="flex:1; min-width:0;">
                             <div style="font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${e.description}</div>
-                            <div style="font-size:11px; color:var(--text-muted);">${cat.name} · ${e.date}</div>
+                            <div style="font-size:11px; color:var(--text-muted);">${tc(cat.name)} · ${e.date}</div>
                         </div>
                         <div style="font-weight:700; color:var(--accent); font-size:14px; white-space:nowrap;">${formatCurrency(e.amount)}</div>
                     </div>`;

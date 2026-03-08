@@ -2,6 +2,15 @@ const translations = {
     pt: {
         // App
         "app_title": "Despesas",
+        // Categories (Defaults)
+        "cat_Casa": "Casa",
+        "cat_Alimentação": "Alimentação",
+        "cat_Transporte": "Transporte",
+        "cat_Saúde": "Saúde",
+        "cat_Lazer": "Lazer",
+        "cat_Tecnologia": "Tecnologia",
+        "cat_Educação": "Educação",
+        "cat_Outros": "Outros",
         // Calendar Tab
         "month_total_label": "Total do mês",
         "day_mon": "Seg",
@@ -288,6 +297,15 @@ const translations = {
     en: {
         // App
         "app_title": "Expenses",
+        // Categories (Defaults)
+        "cat_Casa": "Housing",
+        "cat_Alimentação": "Food",
+        "cat_Transporte": "Transport",
+        "cat_Saúde": "Health",
+        "cat_Lazer": "Leisure",
+        "cat_Tecnologia": "Tech",
+        "cat_Educação": "Education",
+        "cat_Outros": "Others",
         // Calendar Tab
         "month_total_label": "Month Total",
         "day_mon": "Mon",
@@ -584,6 +602,18 @@ function t(key) {
         return translations['pt'][key];
     }
     return key;
+}
+
+// Category Translation Helper
+// If the category name matches one of the defaults exactly, translate it.
+// Otherwise, it means the user renamed it or created a custom one, so we display the custom string.
+window.tc = function(categoryName) {
+    if (!categoryName) return categoryName;
+    const key = `cat_${categoryName}`;
+    if (translations.pt[key]) {
+        return t(key);
+    }
+    return categoryName;
 }
 
 function updateLanguage(lang, executeRenders = true) {
