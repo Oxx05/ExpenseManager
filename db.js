@@ -133,8 +133,10 @@ class ExpenseDB {
             const endDate = new Date(year, month + 1, 0);
             let safetyLimit = 400; // prevent infinite loops
 
+            const getLocalDateString = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
             while (current <= endDate && safetyLimit-- > 0) {
-                const dateStr = current.toISOString().slice(0, 10);
+                const dateStr = getLocalDateString(current);
 
                 // Stop if we hit recurringUntil
                 if (expense.recurringUntil && dateStr > expense.recurringUntil) break;
@@ -272,8 +274,11 @@ class ExpenseDB {
 
         try {
             const all = await this.getAllExpenses();
-            const today = new Date().toISOString().slice(0, 10);
+            const todayObj = new Date();
+            const today = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
             const recurring = all.filter(e => e.isRecurring && e.recurringType && e.recurringType !== 'none');
+
+            const getLocalDateString = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
             for (const expense of recurring) {
                 let nextDate = expense.nextOccurrence || expense.date;
@@ -286,8 +291,9 @@ class ExpenseDB {
 
                     // Stop if this specific occurrence was deleted
                     if (expense.recurringParams?.deletedDates?.includes(nextDate)) {
-                        const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
-                        nextDate = d.toISOString().slice(0, 10);
+                        let [y, m, d_num] = nextDate.split('-').map(Number);
+                        const d = this._advanceDateWithParams(new Date(y, m - 1, d_num), expense.recurringType, expense.recurringParams);
+                        nextDate = getLocalDateString(d);
                         updated = true;
                         continue;
                     }
@@ -316,8 +322,9 @@ class ExpenseDB {
                         all.push({ ...expense, id: newId, date: nextDate, isRecurring: false, parentId: expense.id, cloud_parent_id: expense.cloud_id || null });
                     }
 
-                    const d = this._advanceDateWithParams(new Date(nextDate + 'T00:00:00'), expense.recurringType, expense.recurringParams);
-                    nextDate = d.toISOString().slice(0, 10);
+                    let [y, m, d_num] = nextDate.split('-').map(Number);
+                    const d = this._advanceDateWithParams(new Date(y, m - 1, d_num), expense.recurringType, expense.recurringParams);
+                    nextDate = getLocalDateString(d);
                     updated = true;
                 }
 
@@ -360,8 +367,7 @@ class ExpenseDB {
 
             while (daysToAdd <= 7) {
                 const testDate = new Date(d);
-                // Use UTC-safe arithmetic to prevent DST drift
-                testDate.setTime(d.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+                testDate.setDate(d.getDate() + daysToAdd);
                 const dow = testDate.getDay();
 
                 if (selectedDays.includes(dow)) {
@@ -369,7 +375,6 @@ class ExpenseDB {
                 }
                 daysToAdd++;
             }
-
             // If no day found in next 7 days, advance to next week and continue search
             return this._advanceDateWithParams(new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000), recurringType, params);
         }

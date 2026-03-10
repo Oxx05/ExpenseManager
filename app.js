@@ -267,17 +267,20 @@ function setupGroupTabsSwipe() {
 async function renderCalendar() {
     document.getElementById('month-label').textContent = `${getMonthNames()[currentMonth]} ${currentYear}`;
 
-    // Use the projection method to include recurring entries
+    // Get expenses and strictly filter out future ones (only count "paid" expenses <= today)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
     const localExpenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
     const groupExpenses = await fetchGroupExpensesForMonth(currentYear, currentMonth);
-    const expenses = [...localExpenses, ...groupExpenses];
+    let expenses = [...localExpenses, ...groupExpenses].filter(e => e.date <= todayStr);
 
     categoriesCache = await db.getAllCategories();
 
     // Group by date
     const byDate = {};
     expenses.forEach(e => {
-        if (!byDate[e.date]) byDate[e.date] = [];
+        if (!byDate[e.date] && e.date < now.getDate()) byDate[e.date] = [];
         byDate[e.date].push(e);
     });
 
@@ -291,8 +294,6 @@ async function renderCalendar() {
 
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const today = new Date();
-    const todayStr = today.toISOString().slice(0, 10);
 
     let startDow = firstDay.getDay() - 1;
     if (startDow < 0) startDow = 6;
@@ -1062,20 +1063,18 @@ async function renderSummary() {
     const allExpenses = [...localExpenses, ...groupExpenses];
     categoriesCache = categories;
 
-    // Only count expenses up to today — future projected ones should not count
+    // Only count expenses up to today (filter out future/projected expenses everywhere)
     // Use local date to avoid UTC mismatch near midnight
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const isFutureMonth = (summaryYear > now.getFullYear()) || (summaryYear === now.getFullYear() && summaryMonth > now.getMonth());
-    const isCurrentMonth = (summaryYear === now.getFullYear() && summaryMonth === now.getMonth());
-    // Past months: show everything. Current/future months: only up to today.
-    const expenses = (isCurrentMonth || isFutureMonth) ? allExpenses.filter(e => e.date <= today) : allExpenses;
+    
+    const expenses = allExpenses.filter(e => e.date <= today);
 
     const total = expenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('summary-total').textContent = formatCurrency(total);
 
     // --- Month-over-Month Comparison ---
-    const prevExpenses = [...prevLocalExpenses, ...prevGroupExpenses];
+    const prevExpenses = [...prevLocalExpenses, ...prevGroupExpenses].filter(e => e.date <= today);
     const prevTotal = prevExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     const prevByCat = {};
