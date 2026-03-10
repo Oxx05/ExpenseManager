@@ -267,25 +267,25 @@ function setupGroupTabsSwipe() {
 async function renderCalendar() {
     document.getElementById('month-label').textContent = `${getMonthNames()[currentMonth]} ${currentYear}`;
 
-    // Get expenses and strictly filter out future ones (only count "paid" expenses <= today)
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     const localExpenses = await db.getExpensesWithRecurring(currentYear, currentMonth);
     const groupExpenses = await fetchGroupExpensesForMonth(currentYear, currentMonth);
-    let expenses = [...localExpenses, ...groupExpenses].filter(e => e.date <= todayStr);
+    const expenses = [...localExpenses, ...groupExpenses];
 
     categoriesCache = await db.getAllCategories();
 
     // Group by date
     const byDate = {};
     expenses.forEach(e => {
-        if (!byDate[e.date] && e.date < now.getDate()) byDate[e.date] = [];
+        if (!byDate[e.date]) byDate[e.date] = [];
         byDate[e.date].push(e);
     });
 
-    // Month total (count all including projected)
-    const monthTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+    // Month total (ONLY count "paid" expenses <= today)
+    const paidExpenses = expenses.filter(e => e.date <= todayStr);
+    const monthTotal = paidExpenses.reduce((sum, e) => sum + e.amount, 0);
     document.getElementById('month-total').textContent = formatCurrency(monthTotal);
 
     // Build calendar
