@@ -44,7 +44,8 @@
     --text: #2d2d42;
     --text-dim: #64647c;
     --text-muted: #8b8ba3;
-    --border: rgba(108, 63, 212, 0.12); /* Subtle purple-tinted borders */
+    --border: rgba(108, 63, 212, 0.12);
+    /* Subtle purple-tinted borders */
 }
 
 html,
@@ -221,13 +222,27 @@ body {
 }
 
 @keyframes slideLeftAnim {
-    0% { transform: translateX(30px); opacity: 0; }
-    100% { transform: translateX(0); opacity: 1; }
+    0% {
+        transform: translateX(30px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 @keyframes slideRightAnim {
-    0% { transform: translateX(-30px); opacity: 0; }
-    100% { transform: translateX(0); opacity: 1; }
+    0% {
+        transform: translateX(-30px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 .cal-day {

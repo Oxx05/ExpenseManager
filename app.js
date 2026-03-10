@@ -232,14 +232,18 @@ function setupCalendarSwipe() {
 }
 
 // Trigger calendar slide animation
-function animateCalendarChange(direction) {
+async function animateCalendarChange(direction) {
     const grid = document.getElementById('calendar-grid');
     grid.classList.remove('sliding-left', 'sliding-right');
-    // Force reflow
+    
+    // Render the new month's DOM structure first
+    await renderCalendar();
+    
+    // Force reflow so the browser registers the removal of old animation classes
     void grid.offsetWidth;
     
+    // Trigger the slide animation on the freshly rendered grid
     grid.classList.add(`sliding-${direction}`);
-    renderCalendar();
 }
 
 // --- Swipe para trocar separadores de grupo ---
@@ -674,7 +678,11 @@ async function saveExpense(e) {
     }
 
     setButtonLoading(btn, false);
-    syncExpenses();
+    
+    // Only attempt cloud sync if the user is logged in
+    if (currentUser) {
+        syncExpenses();
+    }
 
     // Refresh UI list if on calendar
     if (selectedDayDate) {
