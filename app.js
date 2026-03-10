@@ -167,16 +167,16 @@ function getMonthNames() {
 
 function setupCalendarNav() {
     document.getElementById('prev-month').addEventListener('click', () => {
+        closeDayDetail();
         currentMonth--;
         if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-        closeDayDetail();
-        renderCalendar();
+        animateCalendarChange('right');
     });
     document.getElementById('next-month').addEventListener('click', () => {
+        closeDayDetail();
         currentMonth++;
         if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-        closeDayDetail();
-        renderCalendar();
+        animateCalendarChange('left');
     });
     document.getElementById('day-detail-close').addEventListener('click', closeDayDetail);
     document.getElementById('day-add-btn').addEventListener('click', () => {
@@ -221,14 +221,25 @@ function setupCalendarSwipe() {
             if (dx < 0) { // swipe left → next month
                 currentMonth++;
                 if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+                animateCalendarChange('left');
             } else { // swipe right → previous month
                 currentMonth--;
                 if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+                animateCalendarChange('right');
             }
-            closeDayDetail();
-            renderCalendar();
         }
     }, { passive: true });
+}
+
+// Trigger calendar slide animation
+function animateCalendarChange(direction) {
+    const grid = document.getElementById('calendar-grid');
+    grid.classList.remove('sliding-left', 'sliding-right');
+    // Force reflow
+    void grid.offsetWidth;
+    
+    grid.classList.add(`sliding-${direction}`);
+    renderCalendar();
 }
 
 // --- Swipe para trocar separadores de grupo ---
@@ -331,16 +342,49 @@ function createDayCell(day, isOtherMonth, isToday = false, expenses = [], dateSt
     if (expenses.length > 0) {
         el.classList.add('has-expense');
         const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-        html += `<span class="cal-amount">${total.toFixed(0)}€</span>`;
 
-        // Category dots
-        html += '<div class="expense-dots">';
-        const uniqueCats = [...new Set(expenses.map(e => e.categoryId))].slice(0, 3);
-        uniqueCats.forEach(catId => {
-            const cat = categoriesCache.find(c => c.id === catId);
-            const color = cat ? cat.color : '#666';
-            html += `<span class="expense-dot" style="background:${color}"></span>`;
+        // --- Heatmap Logic ---
+        // We'll scale the background opacity. Assuming a regular high spend day is 100€ for visualization.
+        const intensity = Math.min(total / 100, 1) * 0.15; // Max 15% opacity tint
+        if (!isToday && !isOtherMonth) {
+            el.style.backgroundColor = `rgba(235, 87, 87, ${intensity})`;
+        }
+
+        // Amount typography (bolder if high spend)
+        const amountStyle = total > 50 ? 'font-weight: 800; font-size: 8.5px;' : '';
+        html += `<span class="cal-amount" style="${amountStyle}">${total.toFixed(0)}€</span>`;
+
+        // --- Category Mini-Bar ---
+        // Instead of dots, we do an inline flex bar that maps spending proportion
+        html += '<div class="cal-cat-bar">';
+        const catTotals = {};
+        expenses.forEach(e => {
+            const cid = e.categoryId;
+            catTotals[cid] = (catTotals[cid] || 0) + e.amount;
         });
+
+        // Sort by amount descending, take top 3, group rest into "others"
+        const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+        const topCats = sortedCats.slice(0, 3);
+        const others = sortedCats.slice(3);
+        const othersTotal = others.reduce((sum, [, amt]) => sum + amt, 0);
+
+        const buildSegment = (catId, amt) => {
+            const pct = (amt / total) * 100;
+            const cat = categoriesCache.find(c => String(c.id) === String(catId));
+            const color = cat ? cat.color : '#666';
+            return `<div class="cal-cat-segment" style="width: ${pct}%; background-color: ${color};"></div>`;
+        };
+
+        topCats.forEach(([catId, amt]) => {
+            html += buildSegment(catId, amt);
+        });
+
+        if (othersTotal > 0) {
+            const pct = (othersTotal / total) * 100;
+            html += `<div class="cal-cat-segment" style="width: ${pct}%; background-color: var(--text-muted);"></div>`;
+        }
+
         html += '</div>';
     }
 

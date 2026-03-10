@@ -212,6 +212,24 @@ body {
     padding: 0 12px;
 }
 
+.calendar-grid.sliding-left {
+    animation: slideLeftAnim 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.calendar-grid.sliding-right {
+    animation: slideRightAnim 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes slideLeftAnim {
+    0% { transform: translateX(30px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideRightAnim {
+    0% { transform: translateX(-30px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
 .cal-day {
     aspect-ratio: 1;
     display: flex;
@@ -234,9 +252,9 @@ body {
 
 .cal-day.today,
 .cal-day.today.current {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: #fff; /* Keeping button text white across themes for contrast */
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-weight: 800;
 }
 
 .cal-day.current {
@@ -252,9 +270,10 @@ body {
 .cal-day.has-expense .cal-amount {
     font-size: 8px;
     font-weight: 700;
-    color: var(--warning);
+    color: var(--text);
     position: absolute;
-    bottom: 3px;
+    bottom: 6px;
+    z-index: 2;
 }
 
 .cal-day.other-month {
@@ -262,17 +281,21 @@ body {
     opacity: 0.4;
 }
 
-.cal-day .expense-dots {
+.cal-cat-bar {
     display: flex;
-    gap: 2px;
     position: absolute;
-    bottom: 2px;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    border-bottom-left-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+    overflow: hidden;
+    opacity: 0.85;
 }
 
-.expense-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
+.cal-cat-segment {
+    height: 100%;
 }
 
 /* --- Day Detail --- */
