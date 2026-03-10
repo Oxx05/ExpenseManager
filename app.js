@@ -2802,7 +2802,6 @@ function updateAuthUI() {
                             <div style="position: absolute; right: -20px; top: -20px; font-size: 80px; opacity: 0.05; color: #ff6b35;"><i class="fas fa-fire"></i></div>
                             <div style="font-size: 28px; text-align: center; color: #ff6b35; text-shadow: 0 2px 10px rgba(255,107,53,0.3);"><i class="fas fa-fire"></i></div>
                             <div style="flex: 1; z-index: 1;">
-                                <div style="font-weight: 800; color: var(--text); font-size: 15px; margin-bottom: 2px;">${streak} ${t('streak_login_days') || 'Dias de Login!'}</div>
                                 <div style="font-size: 11px; color: var(--text-dim); font-weight: 500;">${t('streak_keep_opening') || 'Continua a abrir a app todos os dias.'}</div>
                                 <div style="font-size: 11px; color: var(--warning); font-weight: 700; margin-top: 4px; background: rgba(255, 152, 0, 0.1); display: inline-block; padding: 2px 8px; border-radius: 6px;"><i class="fas fa-gift" style="margin-right:4px;"></i>${rewardText}</div>
                             </div>
