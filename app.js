@@ -422,6 +422,26 @@ async function showDayDetail(dateStr, expenses) {
     const list = document.getElementById('day-detail-list');
     list.innerHTML = '';
 
+    if (expenses.length === 0) {
+        list.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; opacity: 0.7;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <path d="M8 14h.01"></path>
+                <path d="M12 14h.01"></path>
+                <path d="M16 14h.01"></path>
+                <path d="M8 18h.01"></path>
+                <path d="M12 18h.01"></path>
+                <path d="M16 18h.01"></path>
+            </svg>
+            <div style="font-size: 14px; font-weight: 500;">${t('js_no_expenses') || 'Nenhuma despesa'}</div>
+            <div style="font-size: 12px; font-weight: 400;">Excelente foco nas poupanças!</div>
+        </div>`;
+    }
+
     let total = 0;
     for (const expense of expenses) {
         const cat = categoriesCache.find(c => String(c.id) === String(expense.categoryId)) || { icon: '💰', color: '#666', name: t('js_others') };
@@ -670,6 +690,10 @@ async function saveExpense(e) {
         }
 
         if (isRecurring) await db.processRecurring();
+        
+        // Gamification / Feedback Haptic
+        if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        
     } catch (err) {
         console.error("Error saving expense:", err);
         showToast("Erro ao guardar despesa.", "error");
@@ -1233,7 +1257,17 @@ async function renderSummary() {
     });
 
     // Single DOM write (no reflows during loop)
-    chart.innerHTML = chartHtml || '<p style="color:var(--text-muted);text-align:center;padding:20px;">Sem despesas neste mês.</p>';
+    const chartEmptyState = `
+        <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; opacity: 0.7;">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20M17 5v14M7 9v10"/>
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.3"></circle>
+            </svg>
+            <div style="font-size: 15px; font-weight: 500;">Sem despesas neste período</div>
+            <div style="font-size: 12px; font-weight: 400;">Uma lousa em branco. Excelente!</div>
+        </div>
+    `;
+    chart.innerHTML = chartHtml || chartEmptyState;
 
     // --- PRO Charts: Deferred to next frame for better INP ---
     const donutSection = document.getElementById('summary-donut-section');
@@ -1291,7 +1325,7 @@ async function renderSummary() {
                 legendContainer.innerHTML = legendHtml;
             }
 
-            // --- Daily Trend (Mini Bar Chart) ---
+            // --- Daily Trend (SVG Spline Area Chart) ---
             const trendContainer = document.getElementById('daily-trend-bars');
             if (trendContainer) {
                 const lastDay = new Date(summaryYear, summaryMonth + 1, 0).getDate();
@@ -1303,15 +1337,53 @@ async function renderSummary() {
                 });
 
                 const maxDay = Math.max(...Object.values(byDay), 1);
-                let barsHtml = '';
+                
+                // Build coordinate points
+                let points = [];
                 for (let d = 1; d <= lastDay; d++) {
                     const val = byDay[d] || 0;
-                    const pct = (val / maxDay) * 100;
-                    const barColor = val > 0 ? 'var(--accent)' : 'var(--border)';
-                    const minH = val > 0 ? Math.max(pct, 5) : 3;
-                    barsHtml += `<div title="Dia ${d}: ${val.toFixed(2)} €" style="flex:1;height:${minH}%;background:${barColor};border-radius:3px 3px 0 0;min-width:3px;transition:height 0.3s ease;cursor:pointer;"></div>`;
+                    const x = ((d - 1) / (lastDay - 1)) * 100;
+                    const y = 40 - ((val / maxDay) * 35); // Max height peaks at y=5, min at y=40
+                    points.push({x, y});
                 }
-                trendContainer.innerHTML = barsHtml;
+
+                // Bezier Curve generator
+                const bezierCommand = (point, i, a) => {
+                    const [cpsX, cpsY] = controlPoint(a[i - 1], a[i - 2], point);
+                    const [cpeX, cpeY] = controlPoint(point, a[i - 1], a[i + 1], true);
+                    return `C ${cpsX},${cpsY} ${cpeX},${cpeY} ${point.x},${point.y}`;
+                }
+                const controlPoint = (current, previous, next, reverse) => {
+                    const p = previous || current;
+                    const n = next || current;
+                    const smoothing = 0.15;
+                    const o = reverse ? Math.PI : 0;
+                    const length = Math.hypot(n.x - p.x, n.y - p.y) * smoothing;
+                    const angle = Math.atan2(n.y - p.y, n.x - p.x) + o;
+                    return [current.x + Math.cos(angle) * length, current.y + Math.sin(angle) * length];
+                }
+
+                const svgPath = points.reduce((acc, point, i, a) => i === 0
+                    ? `M ${point.x},${point.y}`
+                    : `${acc} ${bezierCommand(point, i, a)}`
+                , '');
+
+                // Fill area requires closing the path down to the bottom
+                const fillPath = `${svgPath} L 100,40 L 0,40 Z`;
+
+                trendContainer.innerHTML = `
+                <svg viewBox="0 0 100 40" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible; padding-top: 10px;">
+                    <defs>
+                        <linearGradient id="splineGradient" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.4"/>
+                            <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.0"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="${fillPath}" fill="url(#splineGradient)" />
+                    <path d="${svgPath}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <!-- Dot for Today or Max Value -->
+                    <circle cx="${points[points.length-1].x}" cy="${points[points.length-1].y}" r="1.5" fill="var(--bg)" stroke="var(--accent)" stroke-width="1" />
+                </svg>`;
             }
         });
     } else {
@@ -3049,7 +3121,17 @@ async function renderGroupsScreen() {
         .order('joined_at', { ascending: true });
 
     if (error || !members || members.length === 0) {
-        list.innerHTML = `<div style="text-align:center; padding:20px; border:1px dashed var(--border); border-radius:12px; color:var(--text-dim);">${t('js_no_groups')}</div>`;
+        list.innerHTML = `
+        <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; opacity: 0.8; border: 1px dashed var(--border); border-radius: 12px; margin-top: 20px;">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text);">${t('js_no_groups')}</div>
+            <div style="font-size: 13px; font-weight: 400; max-width: 200px;">Cria o teu primeiro grupo para começarem a dividir contas.</div>
+        </div>`;
         return;
     }
 
