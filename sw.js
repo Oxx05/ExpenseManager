@@ -1,6 +1,6 @@
-const CACHE_NAME = 'expense-tracker-v10-nuked';
+const CACHE_NAME = 'expense-tracker-v11';
 const ASSETS_TO_CACHE = [
-    '/',
+    '/app',
     '/index.html',
     '/style.css',
     '/db.js',
@@ -30,15 +30,40 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Se for um pedido à API do Supabase, NÃO intercetar.
-    // Previne que o Firefox/Safari apaguem os headers de 'apikey' no evento CORS originado pelo Service Worker
+    // Não intercetar pedidos à API do Supabase nem outros pedidos cross-origin
     if (event.request.url.includes('supabase.co')) {
         return;
     }
 
-    // TEMPORARY GLOBAL CACHE BYPASS
-    // Always fetch directly from network to clear stuck states and two-version bugs
-    event.respondWith(fetch(event.request));
+    // Só intercetar pedidos same-origin (os assets locais)
+    const url = new URL(event.request.url);
+    if (url.origin !== self.location.origin) {
+        return;
+    }
+
+    // Estratégia: Network-first com fallback para cache
+    event.respondWith(
+        fetch(event.request)
+            .then((networkResponse) => {
+                // Guardar resposta válida na cache
+                if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+                    const responseClone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                // Rede falhou — tentar a cache
+                return caches.match(event.request).then((cachedResponse) => {
+                    if (cachedResponse) return cachedResponse;
+                    // Fallback para a página principal se for navegação
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('/app') || caches.match('/index.html');
+                    }
+                    return new Response('Offline', { status: 503 });
+                });
+            })
+    );
 });
 
 // ============================================
